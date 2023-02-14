@@ -90,19 +90,12 @@ pub enum ExpressionType {
     Block(Block),
     MathExpr(MathExpression),
     Value(Value),
-    MathToBool {
-        op: MathtoBinaryOperator,
-        lhs: Box<Expression>,
-        rhs: Box<Expression>,
-    },
-    BoolToBool {
-        lhs: Box<Expression>,
-        rhs: Box<Expression>,
-        op: BinaryBinaryOperator,
-    },
+    MathToBool(MathtoBinaryOperation),
+    BoolToBool(BinaryBinaryOperation),
     UnaryBool(Box<Expression>),
     UnaryMath(Box<Expression>),
 }
+/// An enum of all possible values.
 pub enum Value {
     String(String),
     Number(Number),
@@ -149,20 +142,20 @@ enum MathExpression {
     DevEq(Box<Expression>, Box<Expression>),
 }
 /// Operators taking bools and returning bools. Elsewhere called booleand extenders
-enum BinaryBinaryOperator {
+enum BinaryBinaryOperation {
     And(Box<Expression>, Box<Expression>),
     Or(Box<Expression>, Box<Expression>),
     Nand(Box<Expression>, Box<Expression>),
     Xor(Box<Expression>, Box<Expression>),
 }
 /// Operator that returns a boolean but takes anything
-enum MathtoBinaryOperator {
-    Lt,
-    Gt,
-    Eq,
-    Neq,
-    LtE,
-    GtE,
+enum MathtoBinaryOperation {
+    Lt(Box<Expression>, Box<Expression>),
+    Gt(Box<Expression>, Box<Expression>),
+    Eq(Box<Expression>, Box<Expression>),
+    Neq(Box<Expression>, Box<Expression>),
+    LtE(Box<Expression>, Box<Expression>),
+    GtE(Box<Expression>, Box<Expression>),
 }
 
 impl core::fmt::Debug for MathExpression {
@@ -177,19 +170,30 @@ impl core::fmt::Debug for MathExpression {
         }
     }
 }
-impl core::fmt::Debug for MathtoBinaryOperator {
+impl core::fmt::Debug for MathtoBinaryOperation {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        write!(f, "Comparison operator, like > or ==")
+        match self {
+            MathtoBinaryOperation::Lt(lhs, rhs) => write!(f, "<"),
+            MathtoBinaryOperation::Gt(lhs, rhs) => write!(f, ">"),
+            MathtoBinaryOperation::Eq(lhs, rhs) => write!(f, "="),
+            MathtoBinaryOperation::Neq(lhs, rhs) => write!(f, "!="),
+            MathtoBinaryOperation::LtE(lhs, rhs) => write!(f, "<="),
+            MathtoBinaryOperation::GtE(lhs, rhs) => write!(f, ">="),
+        }
     }
 }
-impl core::fmt::Debug for BinaryBinaryOperator {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        write!(
-            f,
-            r#"Boolean operator that takes in a boolean, like && or "and" "#
-        )
-    }
-}
+// impl fmt::Debug for BinaryBinaryOperation {
+//     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+//         write!(
+//             f,
+//             r#"Boolean operator that takes in a boolean, like && or "and" "#
+//         )
+//     }
+// }
+crate::ImplDebug!(
+    BinaryBinaryOperation,
+    "Boolean operator that takes in a boolean, like && or and"
+);
 impl fmt::Debug for Value {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
@@ -216,16 +220,27 @@ impl Expression {
             return_type: ret_type,
         }
     }
-}
-impl fmt::Debug for Expression {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        write!(
-            f,
-            r#" "{:?}" that returns a {:?}"#,
-            self.type_of_expression, self.return_type
-        )
+    pub fn to_UnaryMathExpression(self) -> Expression {
+        Self::from_ExpressionType(ExpressionType::UnaryMath(Box::new(self)), Type::Int)
     }
 }
+// impl fmt::Debug for Expression {
+//     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+//         write!(
+//             f,
+//             r#" "{:?}"  returns a {:?}"#,
+//             self.type_of_expression, self.return_type
+//         )
+//     }
+// }
+crate::ImplDebug!(
+    Expression,
+    (
+        r#" "{:?}"  returns a {:?}"#,
+        self.type_of_expression,
+        self.return_type
+    )
+);
 impl Value {
     pub fn to_ExpressionType(self) -> ExpressionType {
         ExpressionType::Value(self)
@@ -242,4 +257,14 @@ impl ExpressionType {
             return_type: ret,
         }
     }
+}
+#[macro_export]
+macro_rules! ImplDebug {
+    ( $struct:ident, $write_macro:expr ) => {
+        impl fmt::Debug for $struct {
+            fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+                write!(f, "{}", $write_macro)
+            }
+        }
+    };
 }
