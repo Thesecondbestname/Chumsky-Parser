@@ -224,23 +224,23 @@ impl Expression {
         Self::from_ExpressionType(ExpressionType::UnaryMath(Box::new(self)), Type::Int)
     }
 }
-// impl fmt::Debug for Expression {
-//     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-//         write!(
-//             f,
-//             r#" "{:?}"  returns a {:?}"#,
-//             self.type_of_expression, self.return_type
-//         )
-//     }
-// }
-crate::ImplDebug!(
-    Expression,
-    (
-        r#" "{:?}"  returns a {:?}"#,
-        self.type_of_expression,
-        self.return_type
-    )
-);
+impl fmt::Debug for Expression {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        write!(
+            f,
+            r#" "{:?}"  returns a {:?}"#,
+            self.type_of_expression, self.return_type
+        )
+    }
+}
+// crate::ImplDebug!(
+//     Expression,
+//     (
+//         r#" "{:?}"  returns a {:?}"#,
+//         self.type_of_expression,
+//         self.return_type
+//     )
+// );
 impl Value {
     pub fn to_ExpressionType(self) -> ExpressionType {
         ExpressionType::Value(self)
