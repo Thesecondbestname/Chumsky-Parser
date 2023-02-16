@@ -1,5 +1,5 @@
-use crate::ast::{ExpressionType, Instruction, Number::*, Type, Value};
-use ast::{Expression, Number};
+use crate::ast::{Type, Value};
+use ast::{Expression, Number, MathExpression, ExpressionType};
 use chumsky::prelude::*;
 mod ast;
 use std::io;
@@ -45,5 +45,19 @@ fn parser() -> impl Parser<char, Expression, Error = Simple<char>> {
         .repeated()
         .then(atom)
         .foldr(|_operator, rhs| rhs.to_UnaryMathExpression());
-    unary.then_ignore(end())
+    let product = unary.clone()
+        .then(operator('*').to(ExpressionType::Mul as fn(_, _) -> ExpressionType)
+            .or(operator('/').to(ExpressionType::Div as fn(_, _) -> ExpressionType))
+            .then(unary)
+            .repeated())
+        .foldl(|lhs, (op, rhs)| -> Expression {op(Box::new(lhs), Box::new(rhs)).to_Expression(Type::Int)});
+    let addition = unary.clone()
+        .then(operator('-').to(ExpressionType::Sub as fn(_, _) -> ExpressionType)
+            .or(operator('+').to(ExpressionType::Add as fn(_, _) -> ExpressionType))
+            .then(product)
+            .repeated())
+        .foldl(|lhs, (op, rhs)| -> Expression {op(Box::new(lhs), Box::new(rhs)).to_Expression(Type::Int)});
+
+    addition.then_ignore(end())
+    
 }

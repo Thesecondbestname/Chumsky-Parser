@@ -94,6 +94,12 @@ pub enum ExpressionType {
     BoolToBool(BinaryBinaryOperation),
     UnaryBool(Box<Expression>),
     UnaryMath(Box<Expression>),
+    Add(Box<Expression>, Box<Expression>),
+    Sub(Box<Expression>, Box<Expression>),
+    Mul(Box<Expression>, Box<Expression>),
+    Div(Box<Expression>, Box<Expression>),
+    Pow(Box<Expression>, Box<Expression>),
+    DevEq(Box<Expression>, Box<Expression>),
 }
 /// An enum of all possible values.
 pub enum Value {
@@ -132,8 +138,9 @@ pub struct Span {
     begin: Number,
     end: Number,
 }
-/// Operators used for math and such
-enum MathExpression {
+/// Enum used to hold mathematical operations.
+#[derive(Debug)]
+pub enum MathExpression {
     Add(Box<Expression>, Box<Expression>),
     Sub(Box<Expression>, Box<Expression>),
     Mul(Box<Expression>, Box<Expression>),
@@ -158,18 +165,20 @@ enum MathtoBinaryOperation {
     GtE(Box<Expression>, Box<Expression>),
 }
 
-impl core::fmt::Debug for MathExpression {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        match self {
-            MathExpression::Add(a, b) => write!(f, "{:?} + {:?}", a, b),
-            MathExpression::Sub(a, b) => write!(f, "{:?} - {:?}", a, b),
-            MathExpression::Mul(a, b) => write!(f, "{:?} * {:?}", a, b),
-            MathExpression::Div(a, b) => write!(f, "{:?} / {:?}", a, b),
-            MathExpression::Pow(a, b) => write!(f, "{:?} ^ {:?}", a, b),
-            MathExpression::DevEq(a, b) => write!(f, "{:?} % {:?}", a, b),
-        }
-    }
-}
+// impl core::fmt::Debug for ExpressionType {
+//     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+//         match self {
+//             ExpressionType::Add(a, b) => write!(f, "{:?} + {:?}", a, b),
+//             ExpressionType::Sub(a, b) => write!(f, "{:?} - {:?}", a, b),
+//             ExpressionType::Mul(a, b) => write!(f, "{:?} * {:?}", a, b),
+//             ExpressionType::Div(a, b) => write!(f, "{:?} / {:?}", a, b),
+//             ExpressionType::Pow(a, b) => write!(f, "{:?} ^ {:?}", a, b),
+//             ExpressionType::DevEq(a, b) => write!(f, "{:?} % {:?}", a, b),
+//             ExpressionType::Value(a) => write!(f, "{:?}",a),
+//             _ => write!(f, "Not implemented...")
+//         }
+//     }
+// }
 impl core::fmt::Debug for MathtoBinaryOperation {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
@@ -223,12 +232,13 @@ impl Expression {
     pub fn to_UnaryMathExpression(self) -> Expression {
         Self::from_ExpressionType(ExpressionType::UnaryMath(Box::new(self)), Type::Int)
     }
+    
 }
 impl fmt::Debug for Expression {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         write!(
             f,
-            r#" "{:?}"  returns a {:?}"#,
+            r#" "{:?}" ({:?})"#,
             self.type_of_expression, self.return_type
         )
     }
