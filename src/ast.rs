@@ -1,17 +1,35 @@
-use core::fmt;
-
-#[derive(Debug)]
+#![allow(dead_code)]
+#![allow(unused_variables)]
+use core::{f32, fmt};
+pub enum Lexer {
+    LParen,
+    RParen,
+    Semicolon,
+    Num(i32),
+    Dot,
+    String(String),
+    Fn,
+    Loop,
+    While,
+    Eq,
+    Colon,
+    Bang,
+    Hashtag,
+    Lt,
+    Gt,
+}
+#[derive(Debug, Clone)]
 pub enum Instruction {
     Statement(Box<Statement>),
     Expression(Box<Expression>),
 }
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct Block {
     instructions: Vec<Instruction>,
     return_type: Type,
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub enum Statement {
     /// Various declarations. These should be kept track of.
     Import {
@@ -59,29 +77,31 @@ pub enum Statement {
         block: Box<Block>,
     },
 }
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct EnumVariantDeclaration {
     name: String,
     value: Option<Type>,
 }
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct StructFieldDeclaration {
     name: String,
     r#type: Type,
 }
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct Variable {
-    name: String,
-    r#type: Type,
-    value: Box<Expression>,
+    pub name: String,
+    pub r#type: Type,
+    pub value: Box<Expression>,
 }
+#[derive(Clone)]
 pub struct Expression {
     type_of_expression: ExpressionType,
-    return_type: Type,
+    pub return_type: Type,
 }
-#[derive(Debug)]
+#[derive(Clone)]
 pub enum ExpressionType {
-    Variable(Variable),
+    Statement(Box<Statement>),
+    Variable(String),
     FunctionCall {
         name: String,
         arguments: Vec<Expression>,
@@ -101,6 +121,7 @@ pub enum ExpressionType {
     Pow(Box<Expression>, Box<Expression>),
     DevEq(Box<Expression>, Box<Expression>),
 }
+#[derive(Clone)]
 /// An enum of all possible values.
 pub enum Value {
     String(String),
@@ -111,13 +132,13 @@ pub enum Value {
     Bool(bool),
     Span(Span),
 }
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct FunctionCall {
     name: String,
     arguments: Vec<Expression>,
     return_type: Type,
 }
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub enum Type {
     Int,
     Bool,
@@ -127,19 +148,20 @@ pub enum Type {
     Tuple,
     Char,
     Span,
+    Inferred,
 }
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub enum Number {
     Int(i64),
     Float(f64),
 }
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct Span {
     begin: Number,
     end: Number,
 }
 /// Enum used to hold mathematical operations.
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub enum MathExpression {
     Add(Box<Expression>, Box<Expression>),
     Sub(Box<Expression>, Box<Expression>),
@@ -148,6 +170,7 @@ pub enum MathExpression {
     Pow(Box<Expression>, Box<Expression>),
     DevEq(Box<Expression>, Box<Expression>),
 }
+#[derive(Clone)]
 /// Operators taking bools and returning bools. Elsewhere called booleand extenders
 enum BinaryBinaryOperation {
     And(Box<Expression>, Box<Expression>),
@@ -155,6 +178,7 @@ enum BinaryBinaryOperation {
     Nand(Box<Expression>, Box<Expression>),
     Xor(Box<Expression>, Box<Expression>),
 }
+#[derive(Clone)]
 /// Operator that returns a boolean but takes anything
 enum MathtoBinaryOperation {
     Lt(Box<Expression>, Box<Expression>),
@@ -165,116 +189,104 @@ enum MathtoBinaryOperation {
     GtE(Box<Expression>, Box<Expression>),
 }
 
-// impl core::fmt::Debug for ExpressionType {
-//     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-//         match self {
-//             ExpressionType::Add(a, b) => write!(f, "{:?} + {:?}", a, b),
-//             ExpressionType::Sub(a, b) => write!(f, "{:?} - {:?}", a, b),
-//             ExpressionType::Mul(a, b) => write!(f, "{:?} * {:?}", a, b),
-//             ExpressionType::Div(a, b) => write!(f, "{:?} / {:?}", a, b),
-//             ExpressionType::Pow(a, b) => write!(f, "{:?} ^ {:?}", a, b),
-//             ExpressionType::DevEq(a, b) => write!(f, "{:?} % {:?}", a, b),
-//             ExpressionType::Value(a) => write!(f, "{:?}",a),
-//             _ => write!(f, "Not implemented...")
-//         }
-//     }
-// }
-impl core::fmt::Debug for MathtoBinaryOperation {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        match self {
-            MathtoBinaryOperation::Lt(lhs, rhs) => write!(f, "<"),
-            MathtoBinaryOperation::Gt(lhs, rhs) => write!(f, ">"),
-            MathtoBinaryOperation::Eq(lhs, rhs) => write!(f, "="),
-            MathtoBinaryOperation::Neq(lhs, rhs) => write!(f, "!="),
-            MathtoBinaryOperation::LtE(lhs, rhs) => write!(f, "<="),
-            MathtoBinaryOperation::GtE(lhs, rhs) => write!(f, ">="),
-        }
+crate::impl_debug!(ExpressionType, |s: &ExpressionType| {
+    match s {
+        ExpressionType::Add(a, b) => format!("Add{{{:?} , {:?}}}", a, b),
+        ExpressionType::Sub(a, b) => format!("Sub{{{:?} , {:?}}}", a, b),
+        ExpressionType::Mul(a, b) => format!("{:?} * {:?}", a, b),
+        ExpressionType::Div(a, b) => format!("{:?} / {:?}", a, b),
+        ExpressionType::Pow(a, b) => format!("{:?} ^ {:?}", a, b),
+        ExpressionType::DevEq(a, b) => format!("{:?} % {:?}", a, b),
+        ExpressionType::Value(a) => format!("{:?}", a),
+        _ => format!("Not implemented..."),
     }
-}
-// impl fmt::Debug for BinaryBinaryOperation {
-//     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-//         write!(
-//             f,
-//             r#"Boolean operator that takes in a boolean, like && or "and" "#
-//         )
-//     }
-// }
-crate::ImplDebug!(
-    BinaryBinaryOperation,
+});
+crate::impl_debug!(MathtoBinaryOperation, |s: &MathtoBinaryOperation| {
+    match s {
+        MathtoBinaryOperation::Lt(lhs, rhs) => "<",
+        MathtoBinaryOperation::Gt(lhs, rhs) => ">",
+        MathtoBinaryOperation::Eq(lhs, rhs) => "=",
+        MathtoBinaryOperation::Neq(lhs, rhs) => "!=",
+        MathtoBinaryOperation::LtE(lhs, rhs) => "<=",
+        MathtoBinaryOperation::GtE(lhs, rhs) => ">=",
+    }
+});
+crate::impl_debug!(BinaryBinaryOperation, |_| {
     "Boolean operator that takes in a boolean, like && or and"
-);
-impl fmt::Debug for Value {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        match self {
-            Self::String(arg0) => write!(f, r#""{}""#, arg0),
-            Self::Number(arg0) => write!(f, r#"{:?}"#, arg0),
-            Self::Array(arg0, arg1) => write!(f, r#""{:?}", length {:?}"#, arg1, arg0),
-            Self::Tuple(arg0) => write!(f, r#"({:?})"#, arg0),
-            Self::Char(arg0) => write!(f, r#"'{}'"#, arg0),
-            Self::Bool(arg0) => write!(f, r#"{}"#, arg0),
-            Self::Span(span) => write!(f, r#"from {:?} to {:?}"#, span.begin, span.end),
-        }
+});
+crate::impl_debug!(Value, |s: &Value| {
+    match s {
+        Self::String(arg0) => arg0.to_string(),
+        Self::Number(arg0) => match arg0 {
+            Number::Int(n) => format!("{}", n),
+            Number::Float(n) => format!("{}", n),
+        },
+        Self::Array(arg0, arg1) => format!(r#""{:?}", length {:?}"#, arg1, arg0),
+        Self::Tuple(arg0) => format!("{:?}", arg0),
+        Self::Char(arg0) => arg0.to_string(),
+        Self::Bool(arg0) => arg0.to_string(),
+        Self::Span(span) => format!(r#"from {:?} to {:?}"#, span.begin, span.end),
     }
-}
-impl Instruction {
-    /// Generates a new boxed expression over the inputs.
-    pub fn from_expr(expr: Expression) -> Instruction {
-        Instruction::Expression(Box::new(expr))
-    }
-}
+});
+crate::impl_debug!(Expression, |s: &Expression| (format!(
+    "{:?} -> {:?}",
+    s.clone().type_of_expression,
+    s.clone().return_type
+)));
+
 impl Expression {
-    pub fn from_ExpressionType(expr: ExpressionType, ret_type: Type) -> Expression {
-        Expression {
-            type_of_expression: expr,
-            return_type: ret_type,
-        }
-    }
     pub fn to_UnaryMathExpression(self) -> Expression {
-        Self::from_ExpressionType(ExpressionType::UnaryMath(Box::new(self)), Type::Int)
+        ExpressionType::UnaryMath(Box::new(self)).to_Expression(Type::Int)
     }
-    
-}
-impl fmt::Debug for Expression {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        write!(
-            f,
-            r#" "{:?}" ({:?})"#,
-            self.type_of_expression, self.return_type
-        )
+    /// Converts an Expression To an Instruction
+    pub fn to_instruction(self) -> Instruction {
+        Instruction::Expression(Box::new(self))
     }
 }
-// crate::ImplDebug!(
-//     Expression,
-//     (
-//         r#" "{:?}"  returns a {:?}"#,
-//         self.type_of_expression,
-//         self.return_type
-//     )
-// );
-impl Value {
-    pub fn to_ExpressionType(self) -> ExpressionType {
-        ExpressionType::Value(self)
-    }
-    /// Converts an ExpressionType to an Expression using an input as return type
-    pub fn to_Expression(self, ret_type: Type) -> Expression {
-        self.to_ExpressionType().to_Expression(ret_type)
+impl Statement {
+    pub fn to_instruction(self) -> Instruction {
+        Instruction::Statement(Box::new(self))
     }
 }
-impl ExpressionType {
-    pub fn to_Expression(self, ret: Type) -> Expression {
-        Expression {
-            type_of_expression: self,
-            return_type: ret,
-        }
+crate::impl_to_Expression!(Statement, |s, ret| ExpressionType::Statement(Box::new(s))
+    .to_Expression(Type::Inferred));
+crate::impl_to_Expression!(Value, |s: Value, ret| ExpressionType::Value(s)
+    .to_Expression(ret));
+crate::impl_to_Expression!(Variable, |s: Variable, ret| {
+    ExpressionType::Variable(s.name).to_Expression(ret)
+});
+crate::impl_to_Expression!(ExpressionType, |s, ret| {
+    Expression {
+        type_of_expression: s,
+        return_type: ret,
     }
-}
+});
 #[macro_export]
-macro_rules! ImplDebug {
-    ( $struct:ident, $write_macro:expr ) => {
-        impl fmt::Debug for $struct {
-            fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-                write!(f, "{}", $write_macro)
+macro_rules! impl_debug {
+    ($struct_name:ident, $write_calls:expr) => {
+        impl std::fmt::Debug for $struct_name {
+            fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+                write!(f, "{}", &$write_calls(&self))
             }
         }
     };
+}
+/// used to implement the to_Expression trait.
+#[macro_export]
+macro_rules! impl_to_Expression {
+    ($name: ident, $closure :expr) => {
+        impl ToExpression for $name {
+            fn to_Expression(&self, return_type: Type) -> Expression {
+                $closure(self.clone(), return_type)
+            }
+        }
+    };
+}
+/// Trait that turns something arbitrary into an Expression.
+pub trait ToExpression {
+    fn to_Expression(&self, return_type: Type) -> Expression;
+}
+pub fn i32_to_f32(num1: i32, num2: i32) -> f64 {
+    let result = format!("{}.{}", num1, num2);
+    result.parse::<f64>().unwrap()
 }
