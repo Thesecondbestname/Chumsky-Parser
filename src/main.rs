@@ -53,10 +53,7 @@ fn parser() -> impl Parser<char, Expression, Error = Simple<char>> {
         
         let float = text::int(10)
             .separated_by(just('.'))
-            .allow_leading()
-            .allow_trailing()
-            .at_most(2)
-            .at_least(1)
+            .exactly(2)
             .map(|float| -> Expression{
                 let nums: _ = float
                     .to_owned()
@@ -67,6 +64,8 @@ fn parser() -> impl Parser<char, Expression, Error = Simple<char>> {
                     Value::Number(Number::Float(i32_to_f32(nums[0], nums[1])))
                         .to_Expression(Float_type)
                 });
+
+        let string = ident.delimited_by(just("\""),just("\""));
 
         let number = float.or(int);
         
