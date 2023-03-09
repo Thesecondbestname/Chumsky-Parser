@@ -1,12 +1,15 @@
-use crate::ast::{Type, Value};
 use crate::Number::Int;
 use crate::Type::Float as Float_type;
 use crate::Type::Int as Int_type;
-use ast::{i32_to_f32, Expression, ExpressionType, Number, Variable, ToExpression, Instruction, Statement};
+use ariadne::{Color, Label, Report, ReportKind, Source};
+use ast::{
+    i32_to_f32, Expression, ExpressionType, Instruction, Number, Statement, ToExpression, Token,
+    Type, Value, Variable,
+};
 use chumsky::prelude::*;
 mod ast;
 use std::io;
-
+pub type Span = SimpleSpan<usize>;
 fn main() {
     let input_verified = r#"use io::print
     x = xöla
@@ -38,89 +41,396 @@ fn main() {
         if temp_input == "q" {
             return;
         }
-        let parsed = parser().parse(temp_input);
+        let parsed = lexer().parse(&temp_input);
         println!("{:?}", parsed)
     }
 }
-fn parser() -> impl Parser<char, Expression, Error = Simple<char>> {
-    let ident = text::ident()
-                .padded();
-    let expression = recursive(|expression| {
-        
-        let int = text::int(10)
-            .map(|s: String| Value::Number(Int(s.parse().unwrap())).to_Expression(Int_type))
-            .padded();
-        
-        let float = text::int(10)
-            .separated_by(just('.'))
-            .exactly(2)
-            .map(|float| -> Expression{
-                let nums: _ = float
-                    .to_owned()
-                    .iter()
-                    .map(|num| -> i32 {if let Ok(n) = num.parse() { n } else { 0 }})
-                    .collect::<Vec<i32>>();
-                
-                    Value::Number(Number::Float(i32_to_f32(nums[0], nums[1])))
-                        .to_Expression(Float_type)
-                });
+fn lexer<'src>(
+) -> impl Parser<'src, &'src str, Vec<(Token<'src>, Span)>, extra::Err<Rich<'src, char, Span>>> {
+    // A parser for numbers
+    let num = text::int(10)
+        .then(just('.').then(text::digits(10)).or_not())
+        .slice()
+        .from_str()
+        .unwrapped()
+        .map(Token::Num);
 
-        let string = ident.delimited_by(just("\""),just("\""));
+    // A parser for strings
+    let str_ = just('"')
+        .ignore_then(none_of('"').repeated())
+        .then_ignore(just('"'))
+        .map_slice(Token::String);
 
-        let number = float.or(int);
-        
-        let atom = number.or(expression.delimited_by(just("("), just(")")))
-            .or(ident.map(|var| -> Expression { ExpressionType::Variable(var).to_Expression(Type::Inferred) }));
-        let operator = |char| just(char).padded();
-        let unary = operator('-')
-            .repeated()
-            .then(atom)
-            .foldr(|_operator, rhs| rhs.to_UnaryMathExpression());
+    // A parser for operators
+    let op = one_of("+*-/!=\n")
+        .repeated()
+        .at_least(1)
+        .map_slice(Token::Op);
 
-        let product = unary
-            .clone()
-            .then(
-                operator('*')
-                    .to(ExpressionType::Mul as fn(_, _) -> ExpressionType)
-                    .or(operator('/').to(ExpressionType::Div as fn(_, _) -> ExpressionType))
-                    .then(unary.clone())
-                    .repeated(),
-            )
-            .foldl(|lhs, (op, rhs)| -> Expression {
-                op(Box::new(lhs), Box::new(rhs)).to_Expression(Type::Int)
-            });
+    // A parser for control characters (delimiters, semicolons, etc.)
+    let ctrl = one_of("()[];,").map(Token::Delimiter);
 
-        let addition = product
-            .clone()
-            .then(
-                operator('-')
-                    .to(ExpressionType::Sub as fn(_, _) -> ExpressionType)
-                    .or(operator('+').to(ExpressionType::Add as fn(_, _) -> ExpressionType))
-                    .then(product)
-                    .repeated(),
-            )
-            .foldl(|lhs, (op, rhs)| -> Expression {
-                op(Box::new(lhs), Box::new(rhs)).to_Expression(Type::Int)
-            });
-        addition
+    // A parser for identifiers and keywords
+    let ident = text::ident().map(|ident: &str| match ident {
+        "fn" => Token::Fn,
+        "if" => Token::If,
+        "else" => Token::Else,
+        "true" => Token::Bool(true),
+        "false" => Token::Bool(false),
+        _ => Token::Ident(ident),
     });
-    let decl = recursive(|_decl| {
-        let assignment = ident
-            .then_ignore(just('='))
-            .then(expression.clone())
-            .then_ignore(text::newline())
-            .map(|(name, rhs)|{
-                let var = Statement::VariableDeclaration(Variable { 
-                    name, 
-                    value: Box::new(rhs.clone()), 
-                    r#type: rhs.return_type.clone()
-                });
-                var.to_Expression(Type::Inferred)
-            });
-        assignment.or(expression).padded()
-    });
-    decl.then_ignore(end())
+
+    // A single token can be one of the above
+    let token = num.or(str_).or(op).or(ctrl).or(ident);
+
+    let comment = just("//")
+        .then(any().and_is(just('\n').not()).repeated())
+        .padded();
+
+    token
+        .map_with_span(|tok, span| (tok, span))
+        .padded_by(comment.repeated())
+        .padded()
+        // If we encounter an error, skip and attempt to lex the next character as a token instead
+        .recover_with(skip_then_retry_until(any().ignored(), end()))
+        .repeated()
+        .collect()
 }
+// The type of the input that our parser operates on. The input is the `&[(Token, Span)]` token buffer generated by the
+// lexer, wrapped in a `SpannedInput` which 'splits' it apart into its constituent parts, tokens and spans, for chumsky
+// to understand.
+type ParserInput<'tokens, 'src> =
+    chumsky::input::SpannedInput<Token<'src>, Span, &'tokens [(Token<'src>, Span)]>;
+
+//          chumsky::input::SpannedInput<Token, Span, &[(Token, Span)]>;
+// This looks complex, but don't be scared!
+//
+// There are two lifetimes here:
+//     - 'tokens: the lifetime of the token buffer emitted by the lexer
+//     - 'src: the lifetime of the underlying source code (the string we read from disk)
+// Our source code lives longer than the token buffer, hence `'src: 'tokens`
+//
+// From this function, we return a parser that parses an input of type `ParserInput` (see above for an explanation of
+// that) and produces a `Spanned<Expr>` (an expression with a span attached to it, so we can point to the right thing
+// for runtime errors).
+
+pub type Spanned<T> = (T, Span);
+fn expr_parser<'tokens, 'src: 'tokens>() -> impl Parser<
+    'tokens,
+    ParserInput<'tokens, 'src>,
+    Spanned<Expression>,
+    extra::Err<Rich<'tokens, Token<'src>, Span>>,
+> + Clone {
+    recursive(|expr| {
+        let inline_expr = recursive(|inline_expr| {
+            let val = select! {
+                Token::Bool(x) => ExpressionType::Value(Value::Bool(x)),
+                Token::Num(n) => ExpressionType::Value(Value::Number(Int(n.into()))),
+                Token::String(s) => ExpressionType::Value(Value::String(s.to_string())),
+            };
+
+            let ident = select! { Token::Ident(ident) => ident.clone() };
+
+            // A list of expressions
+            let items = expr
+                .clone()
+                .separated_by(just(Token::Delimiter(',')))
+                .allow_trailing()
+                .collect::<Vec<_>>();
+
+            // A let expression
+            let let_ = ident
+                .then_ignore(just(Token::Op("=")))
+                .then(inline_expr)
+                .then_ignore(just(Token::Delimiter('\n')))
+                .map(|(name, val)| {
+                    ExpressionType::Statement(Box::new(Statement::VariableDeclaration(Variable {
+                        name: name.to_string(),
+                        value: Box::new(val),
+                    })))
+                });
+
+            let list = items
+                .clone()
+                .map(ExpressionType::List)
+                .delimited_by(just(Token::Delimiter('[')), just(Token::Delimiter(']')));
+
+            // 'Atoms' are expressions that contain no ambiguity
+            let atom = val
+                .or(ident.map(ExpressionType::Ident))
+                .or(let_)
+                .or(list)
+                .map_with_span(|expr, span| (expr, span))
+                // Atoms can also just be normal expressions, but surrounded with parentheses
+                .or(expr
+                    .clone()
+                    .delimited_by(just(Token::Delimiter('(')), just(Token::Delimiter(')'))))
+                // Attempt to recover anything that looks like a parenthesised expression but contains errors
+                .recover_with(via_parser(nested_delimiters(
+                    Token::Delimiter('('),
+                    Token::Delimiter(')'),
+                    [
+                        (Token::Delimiter('['), Token::Delimiter(']')),
+                        (Token::Delimiter('{'), Token::Delimiter('}')),
+                    ],
+                    |span| (ExpressionType::ParserError, span),
+                )))
+                // Attempt to recover anything that looks like a list but contains errors
+                .recover_with(via_parser(nested_delimiters(
+                    Token::Delimiter('['),
+                    Token::Delimiter(']'),
+                    [
+                        (Token::Delimiter('('), Token::Delimiter(')')),
+                        (Token::Delimiter('{'), Token::Delimiter('}')),
+                    ],
+                    |span| (ExpressionType::ParserError, span),
+                )))
+                .boxed();
+
+            // Function calls have very high precedence so we prioritise them
+            let call = atom.foldl(
+                items
+                    .delimited_by(just(Token::Delimiter('(')), just(Token::Delimiter(')')))
+                    .map_with_span(|args, span: Span| (args, span))
+                    .repeated(),
+                |f, args| {
+                    let span = f.1.start..args.1.end;
+                    (
+                        ExpressionType::FunctionCall {
+                            name: f,
+                            arguments: args
+                                .0
+                                .iter()
+                                .map(|x| x.to_Expression(Type::Inferred))
+                                .collect(),
+                        },
+                        span.into(),
+                    )
+                },
+            );
+
+            // Product ops (multiply and divide) have equal precedence
+            let op = just(Token::Op("*")).or(just(Token::Op("/")));
+            let product = call.clone().foldl(op.then(call).repeated(), |a, (op, b)| {
+                let span = a.1.start..b.1.end;
+                (
+                    match op {
+                        Token::Op("*") => ExpressionType::Mul(a, b),
+                        Token::Op("/") => ExpressionType::Div(a, b),
+                    },
+                    span.into(),
+                )
+            });
+
+            // Sum ops (add and subtract) have equal precedence
+            let op = just(Token::Op("+")).or(just(Token::Op("-")));
+            let sum = product
+                .clone()
+                .foldl(op.then(product).repeated(), |a, (op, b)| {
+                    let span = a.1.start..b.1.end;
+                    (
+                        match op {
+                            Token::Op("+") => ExpressionType::Add(a, b),
+                            Token::Op("-") => ExpressionType::Sub(a, b),
+                        },
+                        span.into(),
+                    )
+                });
+
+            // Comparison ops (equal, not-equal) have equal precedence
+            let op = just(Token::Op("==")).or(just(Token::Op("!=")));
+            let compare = sum.clone().foldl(op.then(sum).repeated(), |a, (op, b)| {
+                let span = a.1.start..b.1.end;
+                (
+                    match op {
+                        Token::Op("+") => ExpressionType::Add(a, b),
+                        Token::Op("-") => ExpressionType::Sub(a, b),
+                    },
+                    span.into(),
+                )
+            });
+
+            compare.labelled("expression")
+        });
+
+        // Blocks are expressions but delimited with braces
+        let block = expr
+            .clone()
+            .delimited_by(just(Token::Delimiter('{')), just(Token::Delimiter('}')))
+            // Attempt to recover anything that looks like a block but contains errors
+            .recover_with(via_parser(nested_delimiters(
+                Token::Delimiter('{'),
+                Token::Delimiter('}'),
+                [
+                    (Token::Delimiter('('), Token::Delimiter(')')),
+                    (Token::Delimiter('['), Token::Delimiter(']')),
+                ],
+                |span| (ExpressionType::ParserError, span),
+            )));
+
+        let if_ = recursive(|if_| {
+            just(Token::If)
+                .ignore_then(expr.clone())
+                .then(block.clone())
+                .then(
+                    just(Token::Else)
+                        .ignore_then(block.clone().or(if_))
+                        .or_not(),
+                )
+                .map_with_span(|((cond, a), b), span: Span| {
+                    (
+                        ExpressionType::Statement(Box::new(Statement::IfStatement{
+                            condition: cond,
+                            then_branch: Box::new(a),
+                            // If an `if` expression has no trailing `else` block, we magic up one that just produces null
+                            else_branch: b.unwrap_or_else(|| {
+                                (ExpressionType::Value(Value::Tuple(vec![])), span.clone())
+                            }),
+                        })),
+                        span,
+                    )
+                })
+        });
+
+        // Both blocks and `if` are 'block expressions' and can appear in the place of statements
+        let block_expr = block.or(if_).labelled("block");
+
+        let block_chain = block_expr
+            .clone()
+            .foldl(block_expr.clone().repeated(), |a, b| {
+                let span = a.1.start..b.1.end;
+                (ExpressionType::Then(Box::new(a), Box::new(b)), span.into())
+            });
+
+        let block_recovery = nested_delimiters(
+            Token::Delimiter('('),
+            Token::Delimiter(')'),
+            [
+                (Token::Delimiter('('), Token::Delimiter(')')),
+                (Token::Delimiter('['), Token::Delimiter(']')),
+            ],
+            |span| (ExpressionType::Error, span),
+        );
+
+        block_chain
+            // ExpressionTypeessions, chained by semicolons, are statements
+            .or(inline_expr.clone().recover_with(skip_then_retry_until(
+                block_recovery.ignored().or(any().ignored()),
+                one_of([
+                    Token::Delimiter(';'),
+                    Token::Delimiter(')'),
+                    Token::Delimiter(']'),
+                ])
+                .ignored(),
+            )))
+            .foldl(
+                just(Token::Delimiter(';'))
+                    .ignore_then(expr.or_not())
+                    .repeated(),
+                |a, b| {
+                    // This allows creating a span that covers the entire Then expression.
+                    // b_end is the end of b if it exists, otherwise it is the end of a.
+                    let a_start = a.1.start;
+                    let b_end = b.as_ref().map(|b| b.1.end).unwrap_or(a.1.end);
+                    (
+                        ExpressionType::Then(
+                            Box::new(a),
+                            // If there is no b expression then its span is empty.
+                            Box::new(b.unwrap_or_else(|| {
+                                (ExpressionType::Value(Value::Null), (b_end..b_end).into())
+                            })),
+                        ),
+                        (a_start..b_end).into(),
+                    )
+                },
+            )
+    })
+}
+
+//fn parser() -> impl Parser<'static, char, Expression, Simple<'static, char>> {
+//    let ident = text::ident()
+//                .padded();
+//
+//    let expression = recursive(|expression| {
+//
+//        let int = text::int(10)
+//                    .then(just('.').then(text::digits(10)).or_not())
+//                    .slice()
+//                    .from_str()
+//                    .unwrapped()
+//                    .map(|num,num2| Value::Number(Int(num.parse().unwrap())).to_Expression(Int_type))
+//                    .padded();
+//
+//        let float = text::int(10)
+//            .separated_by(just('.'))
+//            .exactly(2)
+//            .map(|float| -> Expression{
+//                let nums: _ = float
+//                    .to_owned()
+//                    .iter()
+//                    .map(|num| -> i32 {if let Ok(n) = num.parse() { n } else { 0 }})
+//                    .collect::<Vec<i32>>();
+//
+//                    Value::Number(Number::Float(i32_to_f32(nums[0], nums[1])))
+//                        .to_Expression(Float_type)
+//                });
+//
+//        let string = ident.delimited_by(just("\""),just("\""));
+//
+//        let number = float.or(int);
+//
+//        let atom = number.or(expression.delimited_by(just("("), just(")")))
+//            .or(ident.map(|var| -> Expression { ExpressionType::Variable(var).to_owned().to_Expression(Type::Inferred) }));
+//        let operator = |char| just(char).padded();
+//        let unary = operator('-')
+//            .repeated()
+//            .then(atom)
+//            .foldr(|_operator, rhs| rhs.to_UnaryMathExpression());
+//
+//        let product = unary
+//            .clone()
+//            .then(
+//                operator('*')
+//                    .to(ExpressionType::Mul as fn(_, _) -> ExpressionType)
+//                    .or(operator('/').to(ExpressionType::Div as fn(_, _) -> ExpressionType))
+//                    .then(unary.clone())
+//                    .repeated(),
+//            )
+//            .foldl(|lhs, (op, rhs)| -> Expression {
+//                op(Box::new(lhs), Box::new(rhs)).to_Expression(Type::Int)
+//            });
+//
+//        let addition = product
+//            .clone()
+//            .then(
+//                operator('-')
+//                    .to(ExpressionType::Sub as fn(_, _) -> ExpressionType)
+//                    .or(operator('+').to(ExpressionType::Add as fn(_, _) -> ExpressionType))
+//                    .then(product)
+//                    .repeated(),
+//            )
+//            .foldl(|lhs, (op, rhs)| -> Expression {
+//                op(Box::new(lhs), Box::new(rhs)).to_Expression(Type::Int)
+//            });
+//        addition
+//    });
+//    let decl = recursive(|_decl| {
+//        let assignment = ident
+//            .then_ignore(just('='))
+//            .then(expression.clone())
+////            .then_ignore(text::newline())
+//            .map(|(name, rhs)|{
+//                let var = Statement::VariableDeclaration(Variable {
+//                    name,
+//                    value: Box::new(rhs.clone()),
+//                    r#type: rhs.return_type.clone()
+//                });
+//                var.to_Expression(Type::Inferred)
+//            });
+//        assignment.or(expression).padded()
+//    });
+//    decl.then_ignore(end())
+//}
 
 #[cfg(test)]
 mod tests;
