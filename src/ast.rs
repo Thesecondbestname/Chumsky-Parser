@@ -3,12 +3,16 @@
 use core::{f32, fmt};
 
 use crate::Spanned;
-#[derive(Debug,PartialEq, Eq,Clone,PartialOrd, Ord)]
+#[derive(Debug, PartialEq, Eq, Clone, PartialOrd, Ord)]
 pub enum Token<'source> {
     Op(&'source str),
+    PathSeperator,
+    Import,
     Delimiter(char),
     Num(i32),
     String(&'source str),
+    Struct,
+    Enum,
     If,
     Else,
     Fn,
@@ -17,35 +21,37 @@ pub enum Token<'source> {
     Colon,
     Hashtag,
     Bool(bool),
-    Ident(& 'source str)
+    Ident(&'source str),
+    Type(Type),
 }
+
 #[derive(Debug, Clone)]
 pub enum Instruction<'a> {
-    Statement(Box<Statement>),
+    Statement(Box<Statement<'a>>),
     Expression(Box<Expression<'a>>),
 }
 #[derive(Debug, Clone)]
 pub struct Block<'a> {
     instructions: Vec<Instruction<'a>>,
-    return_type: Type,
 }
 
 #[derive(Clone)]
 pub enum Statement<'a> {
-    /// Various declarations. These should be kept track of.
-    Import {
-        module: Vec<String>,
-        name: String,
-    },
-    VariableDeclaration(Variable<'a>),
+    /// Obviously for importing stuff 
+    Import(Vec<String>, String),
+    /// Whhere Variables are declared! Order is Name,Value and optional Type
+    VariableDeclaration(String, Box<Expression<'a>>, Option<Type>),
+    /// Where the enum is declared and not where it is constructed
     EnumDeclaration {
         name: String,
         variants: Vec<EnumVariantDeclaration>,
     },
+    /// The one where the struct is firstly defined
     StructDeclaration {
         name: String,
-        fields: Vec<StructFieldDeclaration>,
+        fields: Vec<StructField>,
     },
+    /// Here is where a function is defined
     FunctionDeclaration {
         name: String,
         return_type: String,
@@ -53,29 +59,22 @@ pub enum Statement<'a> {
         body: Block<'a>,
     },
 
-    /// Now the ones that are actually constructed within the code. These should also be kept track of.
+    /// This is the one actually constructed
     Struct {
         name: String,
         fields: Vec<(String, Expression<'a>)>,
     },
+    /// This is for when the enum is actually constructed
     Enum {
         name: String,
         field: String,
         value: Option<Expression<'a>>,
     },
-    /// Various control flow statements. These live in the moment and can be forgotten, because the get folded away anyway.
-    IfStatement {
-        condition: Expression<'a>,
-        then_branch: Box<Block<'a>>,
-        else_branch: Option<Box<Block<'a>>>,
-    },
-    Loop {
-        block: Box<Block<'a>>,
-    },
-    WhileLoop {
-        expression: Expression<'a>,
-        block: Box<Block<'a>>,
-    },
+    /// Obvious If statement. This is a statement as opposed to the IfElse Expression because that
+    /// returns something
+    IfStatement(Box<Spanned<Expression<'a>>>, Box<Spanned<Expression<'a>>>),
+    Loop(Box<Block<'a>>),
+    WhileLoop(Expression<'a>, Box<Block<'a>>),
 }
 #[derive(Debug, Clone)]
 pub struct EnumVariantDeclaration {
@@ -83,9 +82,9 @@ pub struct EnumVariantDeclaration {
     value: Option<Type>,
 }
 #[derive(Debug, Clone)]
-pub struct StructFieldDeclaration {
-    name: String,
-    r#type: Type,
+pub struct StructField {
+    pub(crate) name: String,
+    pub(crate) r#type: Type,
 }
 #[derive(Debug, Clone)]
 pub struct Variable<'a> {
@@ -93,45 +92,23 @@ pub struct Variable<'a> {
     pub value: Box<Expression<'a>>,
 }
 #[derive(Clone)]
-pub struct Expression<'a> {
-    type_of_expression: ExpressionType<'a>,
-    pub return_type: Type,
-}
-#[derive(Clone)]
-pub enum ExpressionType<'a> {
+pub enum Expression<'a> {
     ParserError,
     Ident(&'a str),
-    List(Vec<Self>),
-    Statement(Box<Statement<'a>>),
+    List(Vec<Expression<'a>>),
+    Then(Box<Spanned<Self>>, Box<Spanned<Self>>),
     Variable(String),
-    FunctionCall {
-        name: String,
-        arguments: Vec<Expression<'a>>,
-    },
+    FunctionCall(Box<Spanned<Self>>, Spanned<Vec<Self>>),
     Block(Block<'a>),
-    MathExpr(MathExpression),
     Value(Value),
-    MathToBool(MathtoBinaryOperation),
-    BoolToBool(BinaryBinaryOperation),
+    IfElse(Box<Spanned<Self>>, Box<Spanned<Self>>, Box<Spanned<Self>>),
     UnaryBool(Box<Spanned<Self>>),
     UnaryMath(Box<Spanned<Self>>),
-    Add(Box<Spanned<Self>>, Box<Spanned<Self>>),
-    Sub(Box<Spanned<Self>>, Box<Spanned<Self>>),
-    Mul(Box<Spanned<Self>>, Box<Spanned<Self>>),
-    Div(Box<Spanned<Self>>, Box<Spanned<Self>>),
-    Pow(Box<Spanned<Self>>, Box<Spanned<Self>>),
-    DevEq(Box<Spanned<Self>>, Box<Spanned<Self>>),
-    Lt(Box<Expression>, Box<Expression>),
-    Gt(Box<Expression>, Box<Expression>),
-    Eq(Box<Expression>, Box<Expression>),
-    Neq(Box<Expression>, Box<Expression>),
-    LtE(Box<Expression>, Box<Expression>),
-    GtE(Box<Expression>, Box<Expression>),
-    And(Box<Expression>, Box<Expression>),
-    Or(Box<Expression>, Box<Expression>),
-    Nand(Box<Expression>, Box<Expression>),
-    Xor(Box<Expression>, Box<Expression>),
+    MathOp(Box<Spanned<Self>>, MathOp, Box<Spanned<Self>>),
+    MathtComp(Box<Self>, MathtoBinOp, Box<Expression<'a>>),
+    Binary(Box<Expression<'a>>, BinaryOp, Box<Expression<'a>>),
 }
+
 #[derive(Clone)]
 /// An enum of all possible values.
 pub enum Value {
@@ -141,20 +118,43 @@ pub enum Value {
     Tuple(Vec<Value>),
     Char(char),
     Bool(bool),
-    Span {
-        begin: i32,
-        end: i32
-    },
+    Span(i32, i32),
 }
-
-#[derive(Debug, Clone)]
+#[derive(Clone)]
+pub enum MathOp {
+    Add,
+    Sub,
+    Pow,
+    Div,
+    Mul,
+    AbsDiv,
+}
+#[derive(Clone)]
+pub enum MathtoBinOp {
+    Lt,
+    Gt,
+    Lte,
+    Gte,
+}
+#[derive(Clone)]
+pub enum BinaryOp {
+    Neq,
+    Eq,
+    And,
+    Or,
+    Nand,
+    Xor,
+}
+/// All the type primitives. These do not contain values, rather they denote that a given type
+/// belongs here.
+#[derive(Debug, Clone, Eq, PartialEq, PartialOrd, Ord)]
 pub enum Type {
     Int,
     Bool,
     Float,
     String,
-    Array,
-    Tuple,
+    Array(Box<Type>,i32),
+    Tuple(Vec<Type>),
     Char,
     Span,
     Inferred,
@@ -166,71 +166,33 @@ pub enum Number {
 }
 #[derive(Debug, Clone)]
 pub struct Span {
-    begin: Number,
-    end: Number,
+    pub(crate) begin: Number,
+    pub(crate) end: Number,
 }
-/// Enum used to hold mathematical operations.
-#[derive(Debug, Clone)]
-pub enum MathExpression {
-    Add(Box<Expression>, Box<Expression>),
-    Sub(Box<Expression>, Box<Expression>),
-    Mul(Box<Expression>, Box<Expression>),
-    Div(Box<Expression>, Box<Expression>),
-    Pow(Box<Expression>, Box<Expression>),
-    DevEq(Box<Expression>, Box<Expression>),
-}
-#[derive(Clone)]
-/// Operators taking bools and returning bools. Elsewhere called booleand extenders
-enum BinaryBinaryOperation {
-    And(Box<Expression>, Box<Expression>),
-    Or(Box<Expression>, Box<Expression>),
-    Nand(Box<Expression>, Box<Expression>),
-    Xor(Box<Expression>, Box<Expression>),
-}
-#[derive(Clone)]
-/// Operator that returns a boolean but takes anything
-enum MathtoBinaryOperation {
-    Lt(Box<Expression>, Box<Expression>),
-    Gt(Box<Expression>, Box<Expression>),
-    Eq(Box<Expression>, Box<Expression>),
-    Neq(Box<Expression>, Box<Expression>),
-    LtE(Box<Expression>, Box<Expression>),
-    GtE(Box<Expression>, Box<Expression>),
-}
-crate::impl_debug!(Statement,
-    |s: &Statement| {
-        match s {
-            Statement::VariableDeclaration(n) => format!("(Variable: {:?} = {:?})",n.name,n.value),
-            _ => "Not implemented...".to_string()
-        }
-    });
-crate::impl_debug!(ExpressionType, |s: &ExpressionType| {
+crate::impl_debug!(Statement, |s: &Statement| {
     match s {
-        ExpressionType::Add(a, b) => format!("Add{{{:?} , {:?}}}", a, b),
-        ExpressionType::Sub(a, b) => format!("Sub{{{:?} , {:?}}}", a, b),
-        ExpressionType::Mul(a, b) => format!("{:?}\n * {:?}", a, b),
-        ExpressionType::Div(a, b) => format!("{:?}\n / {:?}", a, b),
-        ExpressionType::Pow(a, b) => format!("{:?} ^ {:?}", a, b),
-        ExpressionType::DevEq(a, b) => format!("{:?} % {:?}", a, b),
-        ExpressionType::Value(a) => format!("{:?}", a),
-        ExpressionType::Statement(a) => format!("{:?}",a),
+        Statement::VariableDeclaration(n, b, _) => format!("(Variable: {:?} = {:?})", n, b),
+        _ => "Not implemented...".to_string(),
+    }
+});
+crate::impl_debug_nolifetime!(MathOp, |s: &MathOp| match s {
+    MathOp::Add => format!("+"),
+    MathOp::Sub => format!("-"),
+    MathOp::Pow => format!("**"),
+    MathOp::Div => format!("/"),
+    MathOp::Mul => format!("*"),
+    MathOp::AbsDiv => format!("%"),
+});
+crate::impl_debug!(Expression, |s: &Expression| {
+    match s {
+        Expression::MathOp(a, b, c) => {
+            format!("(Mathematical Operation: {:?} {:?} {:?})", a, b, c)
+        }
+        Expression::Value(a) => format!("{:?}", a),
         _ => format!("Not implemented..."),
     }
 });
-crate::impl_debug!(MathtoBinaryOperation, |s: &MathtoBinaryOperation| {
-    match s {
-        MathtoBinaryOperation::Lt(lhs, rhs) => "<",
-        MathtoBinaryOperation::Gt(lhs, rhs) => ">",
-        MathtoBinaryOperation::Eq(lhs, rhs) => "=",
-        MathtoBinaryOperation::Neq(lhs, rhs) => "!=",
-        MathtoBinaryOperation::LtE(lhs, rhs) => "<=",
-        MathtoBinaryOperation::GtE(lhs, rhs) => ">=",
-    }
-});
-crate::impl_debug!(BinaryBinaryOperation, |_| {
-    "Boolean operator that takes in a boolean, like && or and"
-});
-crate::impl_debug!(Value, |s: &Value| {
+crate::impl_debug_nolifetime!(Value, |s: &Value| {
     match s {
         Self::String(arg0) => arg0.to_string(),
         Self::Number(arg0) => match arg0 {
@@ -241,46 +203,33 @@ crate::impl_debug!(Value, |s: &Value| {
         Self::Tuple(arg0) => format!("{:?}", arg0),
         Self::Char(arg0) => arg0.to_string(),
         Self::Bool(arg0) => arg0.to_string(),
-        Self::Span(span) => format!(r#"from {:?} to {:?}"#, span.begin, span.end),
+        Self::Span(begin, end) => format!(r#"from {:?} to {:?}"#, begin, end),
     }
 });
-crate::impl_debug!(Expression, |s: &Expression| (format!(
-    "({:?}) -> {:?}",
-    s.clone().type_of_expression,
-    s.clone().return_type
-)));
 
-impl Expression {
-    pub fn to_UnaryMathExpression(arg: (ExpressionType, chumsky::span::SimpleSpan)) -> Expression {
-        ExpressionType::UnaryMath(Box::new(arg)).to_Expression(Type::Int)
+impl Number {
+    pub fn from_i32(num: i32) -> Number {
+        Number::Int(num.into())
     }
+    pub fn from_f32(num: f32) -> Number {
+        Number::Float(num.into())
+    }
+}
+impl<'inp> Expression<'inp> {
     /// Converts an Expression To an Instruction
-    pub fn to_instruction(self) -> Instruction {
+    pub fn to_instruction(self) -> Instruction<'inp> {
         Instruction::Expression(Box::new(self))
     }
 }
-impl Statement {
-    pub fn to_instruction(self) -> Instruction {
+impl<'inp> Statement<'inp> {
+    pub fn to_instruction(self) -> Instruction<'inp> {
         Instruction::Statement(Box::new(self))
     }
 }
-crate::impl_to_Expression!(Statement, |s, ret| ExpressionType::Statement(Box::new(s))
-    .to_Expression(Type::Inferred));
-crate::impl_to_Expression!(Value, |s: Value, ret| ExpressionType::Value(s)
-    .to_Expression(ret));
-crate::impl_to_Expression!(Variable, |s: Variable, ret| {
-    ExpressionType::Variable(s.name).to_Expression(ret)
-});
-crate::impl_to_Expression!(ExpressionType, |s, ret| {
-    Expression {
-        type_of_expression: s,
-        return_type: ret,
-    }
-});
 #[macro_export]
 macro_rules! impl_debug {
     ($struct_name:ident, $write_calls:expr) => {
-        impl std::fmt::Debug for $struct_name {
+        impl std::fmt::Debug for $struct_name<'_> {
             fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
                 write!(f, "{}", &$write_calls(&self))
             }
@@ -289,18 +238,38 @@ macro_rules! impl_debug {
 }
 /// used to implement the to_Expression trait.
 #[macro_export]
-macro_rules! impl_to_Expression {
+macro_rules! impl_to_Instruction {
     ($name: ident, $closure :expr) => {
-        impl ToExpression for $name {
-            fn to_Expression(&self, return_type: Type) -> Expression {
-                $closure(self.clone(), return_type)
+        impl<'Inp> ToInstruction<'Inp> for $name<'Inp> {
+            fn to_Instruction(&self) -> Instruction<'Inp> {
+                $closure(self.clone()) 
+            }
+        }
+    };
+}
+#[macro_export]
+macro_rules! impl_to_Instruction_nolife {
+    ($name: ident, $closure :expr) => {
+        impl ToInstruction for $name {
+            fn to_Instruction(&self) -> Instruction {
+                $closure(self.clone())
+            }
+        }
+    };
+}
+#[macro_export]
+macro_rules! impl_debug_nolifetime {
+    ($struct_name:ident, $write_calls:expr) => {
+        impl std::fmt::Debug for $struct_name {
+            fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+                write!(f, "{}", &$write_calls(&self))
             }
         }
     };
 }
 /// Trait that turns something arbitrary into an Expression.
-pub trait ToExpression {
-    fn to_Expression(&self, return_type: Type) -> Expression;
+pub trait ToInstruction<'inp> {
+    fn to_Instruction(&self) -> Instruction<'inp>;
 }
 pub fn i32_to_f32(num1: i32, num2: i32) -> f64 {
     let result = format!("{}.{}", num1, num2);
