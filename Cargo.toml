@@ -5,11 +5,22 @@ edition = "2021"
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
+[workspace]
+members = [
+  "parser",
+]
+
+
 [dependencies]
 ariadne = "0.1.5"
 miette = "5.5.0"
+logos = "0.13.0"
+colored = "2.0.0"
+parser = { path = "parser" }
 
-[dependencies.chumsky]
-git = "https://github.com/zesterer/chumsky"
-rev = "4145fcf5bf1323d1accae5d7ba50ff9b799dbe43"
-features = ["label"]
+[profile.dev.package."*"]
+opt-level = 3
+
+[lints.clippy]
+nursery = "deny"
+pedantic = "deny"

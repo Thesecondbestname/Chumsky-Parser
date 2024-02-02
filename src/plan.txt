@@ -1,0 +1,33 @@
+fn statement_parser {
+	import = "use" <ident> / <ident>
+
+	enum
+
+	struct
+	
+	trait
+
+	type
+
+}
+
+fn type_parser() {
+	
+}
+
+fn identity_parser(expression) {
+
+	function_definition
+
+	assignment
+}
+
+fn expression_parser {
+	atom = Operations | call | ident
+}
+
+fn parser {
+	programm = Statement
+
+}
+

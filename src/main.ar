@@ -1,0 +1,136 @@
+const boardsize = 20
+type coordinate = (0..boardsize, 0..boardsize)
+use std/graphics/prelude/*
+
+
+
+struct SnekGame:
+    apple #coordinate,
+    snek #[boardsize, [boardsize, bool]],
+    direction #Direction,
+    head #coordinate ,
+    length #int,
+     
+    impl:
+        #update: self, (
+            if self.apple == self.head (
+                self.length += 1
+            )
+            if self.snek[self.head.0[self.head.1](
+                self.game_over
+            )
+            self.snek[self.head.0[self.head.1]] = true
+            match self.direction:
+                Up = head.1++,
+                Down = head.1--,
+                Right = head.0++,
+                Left = head.0
+            ;
+        )
+	;
+;
+    
+#main: (
+    window = Window/new
+        .title("snek")
+        .fixed_size(500, 500)
+    frame = Canvas/new
+        .coordinates(boardsize, boardsize).seal()
+    game_state = SnekGame: 
+            (std_rnd, std/rnd), 
+            [boardsize^2; bool],
+            Direction/default(),
+            (10, 10)
+        ;
+    loop (
+        events = window.update().events()
+        match events.0:
+            Some(Key/Left) = (game_state.direction = Direction/Left)
+            Some(Key/Right) = (game_state.direction = Direction/Right)
+            Some(Key/Up) = (game_state.direction = Direction/Up)
+            Some(Key/Down) = (game_state.direction = Direction/Down)
+            ;
+        draw(game_state.update())
+        
+    )
+)
+#draw: 
+    state #SnekGame,
+    frame #Canvas,
+    window #Window
+   (
+    for row, x_index in state.snek.enumerate() (
+        for block, y_index in state.snek[index].enumerate() (
+            if block (
+                frame
+                    .square()
+                    .xy(x_index, y_index)
+                    .red()
+                    .build()
+            )
+        )
+    )
+   window.draw(frame) 
+)
+
+enum Direction:
+    Up,
+    Down,
+    Left,
+    Right,
+    $default:
+        Self# default:(self/Right)
+    ;
+;
+
+
+Statement [
+    const [Boardsize, int, 20]
+]
+Statement [
+    type [
+        coordinate,
+        Tuple [
+            Range [ 20, Boardsize]
+            Range [ 20, Boardsize]
+        ]
+    ]
+]
+Statement [
+    import [
+        Vec [
+            std,
+            graphics,
+            prelude,
+            *
+        ]
+    ]
+]
+Statement [
+    enum_decl [
+        name: Direction,
+        variants: Up, Down, Left, Right
+        impl [
+            trait [
+                default,
+                function [
+                    Self,
+                    default,
+                    Expression [
+
+        ]
+    ]
+]
+programm(
+    | import
+    | enum
+    | struct
+    | trait
+    | function
+)
+scope (
+    | import
+    | function 
+    | statement
+    | scope
+)

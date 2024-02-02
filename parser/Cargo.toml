@@ -1,0 +1,15 @@
+[package]
+name = "parser"
+version = "0.1.0"
+edition = "2021"
+
+# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+
+[dependencies]
+logos = "0.13.0"
+
+[dependencies.chumsky]
+git = "https://github.com/zesterer/chumsky"
+rev = "4145fcf5bf1323d1accae5d7ba50ff9b799dbe43"
+features = ["label","memoization"]
+
