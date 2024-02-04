@@ -1,6 +1,6 @@
 const boardsize = 20
 type coordinate = (0..boardsize, 0..boardsize)
-use std/graphics/prelude/*
+use std:graphics:prelude:*
 
 
 
@@ -31,29 +31,30 @@ struct SnekGame:
 ;
     
 #main: (
-    window = Window/new
+    window = Window:new
         .title("snek")
         .fixed_size(500, 500)
     frame = Canvas/new
         .coordinates(boardsize, boardsize).seal()
     game_state = SnekGame: 
-            (std_rnd, std/rnd), 
+            (std_rnd, std:rnd), 
             [boardsize^2; bool],
-            Direction/default(),
+            Direction:default(),
             (10, 10)
         ;
     loop (
         events = window.update().events()
         match events.0:
-            Some(Key/Left) = (game_state.direction = Direction/Left)
-            Some(Key/Right) = (game_state.direction = Direction/Right)
-            Some(Key/Up) = (game_state.direction = Direction/Up)
-            Some(Key/Down) = (game_state.direction = Direction/Down)
+            Some(Key:Left) = (game_state.direction = Direction:Left)
+            Some(Key:Right) = (game_state.direction = Direction:Right)
+            Some(Key:Up) = (game_state.direction = Direction:Up)
+            Some(Key:Down) = (game_state.direction = Direction:Down)
             ;
         draw(game_state.update())
         
     )
 )
+
 #draw: 
     state #SnekGame,
     frame #Canvas,
@@ -79,7 +80,7 @@ enum Direction:
     Left,
     Right,
     $default:
-        Self# default:(self/Right)
+        Self# default:(self:Right)
     ;
 ;
 
