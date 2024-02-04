@@ -87,7 +87,7 @@ pub(super) enum Token {
     If,
     #[token("use")]
     Import,
-    #[token("}")]
+    #[token("{")]
     Lbracket,
     #[regex(r"-?[0-9]+", |lex| lex.slice().parse::<i64>().unwrap(), priority=2)]
     Integer(i64),
@@ -120,13 +120,15 @@ pub(super) enum Token {
     Xor,
     #[token("_")]
     PathSeperator,
-    #[token("{")]
+    #[token("}")]
     Rbracket,
     /// )
     #[token(")")]
     Rparen,
     #[token(";")]
     Semicolon,
+    #[token(":3")]
+    StmtCast,
     #[token("struct")]
     Struct,
     #[token("-")]

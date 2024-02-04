@@ -25,8 +25,7 @@ pub(super) fn type_parser<'tokens, 'src: 'tokens>() -> impl Parser<
     Type,                       // Output
     Error<'tokens>,             // Error Type
 > + Clone {
-    let int = select! { Token::Integer(v) => {println!("found {:?}",v);v.clone()} }
-        .labelled("Whole AAh integer");
+    let int = select! { Token::Integer(v) => v.clone() }.labelled("Whole AAh integer");
     recursive(|r#type| {
         let primitives = select! {Token::Type(x) => x,}.labelled("primitive type");
         let tuple = r#type

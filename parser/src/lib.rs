@@ -20,17 +20,11 @@ mod convenience_types {
         chumsky::input::SpannedInput<Token, Span, &'tokens [(Token, Span)]>;
     pub(crate) type Span = chumsky::span::SimpleSpan<usize>;
 }
+pub(crate) use item_parser::item_parser;
 mod parsers {
     pub(crate) use crate::{
         expression_parser::expressions::expression_parser, statement_parser::statement_parser,
     };
-}
-mod item_parsers {
-    pub(crate) use crate::item_parser::enum_parser;
-    pub(crate) use crate::item_parser::fn_parser;
-    pub(crate) use crate::item_parser::import_parser;
-    pub(crate) use crate::item_parser::struct_parser;
-    // pub(crate) use crate::item_parser::trait_parser;
 }
 mod convenience_parsers {
     pub(crate) use super::util_parsers::{ident_parser, separator, type_parser};

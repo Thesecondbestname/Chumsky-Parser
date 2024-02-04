@@ -6,6 +6,18 @@ pub enum Instruction {
     Statement(Box<Statement>),
     Expression(Box<Expression>),
 }
+
+#[derive(Debug, Clone)]
+pub enum BlockElement {
+    Item(Spanned<Item>),
+    Statement(Spanned<Statement>),
+    SilentExpression(Spanned<Expression>),
+}
+
+#[derive(Debug, Clone)]
+pub struct Block(pub Vec<Spanned<BlockElement>>);
+
+#[derive(Debug, Clone)]
 pub enum Item {
     Function(Spanned<FunctionDeclaration>),
     Import(Spanned<Import>),
@@ -15,10 +27,10 @@ pub enum Item {
 #[derive(Debug, Clone)]
 /// Here is where a function is defined
 pub struct FunctionDeclaration {
-    name: Spanned<String>,
-    return_type: Spanned<Type>,
-    arguments: Vec<(Spanned<Type>, Spanned<String>)>,
-    body: Spanned<Expression>,
+    pub name: Spanned<String>,
+    pub return_type: Spanned<Type>,
+    pub arguments: Vec<(Spanned<Type>, Spanned<String>)>,
+    pub body: Spanned<Expression>,
 }
 #[derive(Debug, Clone)]
 /// Obviously for importing stuff
@@ -204,16 +216,8 @@ crate::impl_display!(Expression, |s: &Expression| {
         Expression::Value(a) => format!("{}", a),
         Expression::Ident(a) => format!("{}", a),
         Expression::ParserError => format!("Error"),
-        // Expression::List(_) => todo!(),
-        // Expression::Then(_, _) => todo!(),
-        // Expression::Variable(_) => todo!(),
         Expression::FunctionCall(called, args) => format!("{:#?} on ({:#?})", called, args),
-        // Expression::MethodCall(_, _, _) => todo!(),
         Expression::Block(block) => format!("({:#?})", block),
-        // Expression::IfElse(_, _, _) => todo!(),
-        // Expression::UnaryBool(_) => todo!(),
-        // Expression::UnaryMath(_) => todo!(),
-        // Expression::Comparison(a, op, b) => todo!(),
         Expression::Binary(a, op, b) => format!("Binary Operation: {:#?} {:#?} {:#?}", a, op, b),
         fuck => format!("Not yet implemented to display {fuck:#?}"),
     }
@@ -222,22 +226,13 @@ crate::impl_display!(Expression, |s: &Expression| {
 crate::impl_display!(Statement, |s: &Statement| {
     match s {
         Statement::ParserError => todo!(),
-        Statement::Import(module, name) => format!("import {} from {:?}", name.0, module),
         Statement::VariableDeclaration(_, _) => todo!(),
-        Statement::EnumDeclaration { name, variants } => todo!(),
-        Statement::StructDeclaration { name, fields } => todo!(),
-        Statement::FunctionDeclaration {
-            name,
-            return_type,
-            arguments,
-            body,
-        } => todo!(),
         Statement::Break(val) => format!("Break {}", val.0),
         Statement::Loop(_) => todo!(),
         Statement::Return(val) => format!("return {}", val.0),
-        Statement::Continue => todo!(),
+        Statement::Continue => format!("continue"),
         Statement::WhileLoop(_, _) => todo!(),
-        Statement::Expression(_) => todo!(),
+        Statement::Expression(e) => format!("{e}"),
         _ => format!("Not yet implemented :3"),
     }
 });

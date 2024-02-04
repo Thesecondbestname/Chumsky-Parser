@@ -24,6 +24,7 @@ pub(super) mod expressions {
             select! {Token::LiteralString(s) => Expression::Value(Value::String(s.clone()))}
                 .labelled("String");
         let span = select! {Token::Span(s) => Expression::Value(Value::Span(s.start, s.end))};
+
         // The recursive expression Part
         recursive(|expression| {
             let inline_expression = {
@@ -34,6 +35,7 @@ pub(super) mod expressions {
                         (Expression::Value(Value::Option(Box::new(expr))), span)
                     })
                     // Atoms can also just be normal expressions, but surrounded with parentheses
+                    // TODO: Here is where I'd add in my block parser
                     .or(expression
                         .clone()
                         .delimited_by(just(Token::Lparen), just(Token::Rparen)))
@@ -188,15 +190,18 @@ pub(super) mod expressions {
                     |span| (Expression::ParserError, span),
                 )));
 
-            let block_chain =
-                block
-                    .clone()
-                    .foldl(block.clone().separated_by(just(Token::Newline)), |a, b| {
-                        let span = a.1.start..b.1.end;
-                        (Expression::Then(Box::new(a), Box::new(b)), span.into())
-                    });
+            // HACK: This is the scetchiest implementation of this ever concieved
+            // It parses one block and then
+            // let block_chain =
+            //     block
+            //         .clone()
+            //         .foldl(block.clone().separated_by(just(Token::Newline)), |a, b| {
+            //             let span = a.1.start..b.1.end;
+            //             (Expression::Then(Box::new(a), Box::new(b)), span.into())
+            //         });
+
             choice((
-                block_chain.labelled("block"),
+                block.labelled("block"),
                 // Expressions, chained by semicolons, are statements
                 inline_expression.clone(),
             ))

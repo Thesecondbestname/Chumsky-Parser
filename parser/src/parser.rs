@@ -1,7 +1,6 @@
 use crate::ast::*;
 use crate::convenience_types::{Error, ParserInput, Spanned};
 use crate::item_parser::item_parser;
-use crate::item_parsers::{fn_parser, import_parser};
 use crate::parsers::expression_parser;
 use crate::parsers::statement_parser;
 use crate::Token;
@@ -32,19 +31,26 @@ pub(super) fn programm_parser<'tokens, 'src: 'tokens>() -> impl Parser<
 fn block_parser<'tokens, 'src: 'tokens>() -> impl Parser<
     'tokens,
     ParserInput<'tokens, 'src>, // Input
-    Spanned<Statement>,         // Output
+    BlockElement,               // Output
     Error<'tokens>,             // Error Type
 > + Clone {
     // import, function, statement, scope
     let scope = recursive(|block| {
-        choice((
-            item_parser(block),
-            statement_parser(block),
-            expression_parser().delimited_by(just(Token::Lparen), just(Token::Rparen)),
-        ))
-        .repeated()
-        .collect::<Vec<_>>()
+        let block_element = choice((
+            item_parser(block).map_with_span(|item, span| BlockElement::Item((item, span))),
+            // statement_parser(block).map(BlockElement::Statement),
+            expression_parser()
+                .then_ignore(just(Token::Semicolon))
+                .map(BlockElement::SilentExpression),
+        ));
+        let blocc = block_element
+            .separated_by(just(Token::Newline))
+            .collect::<Vec<_>>()
+            .delimited_by(just(Token::Lparen), just(Token::Rparen))
+            .map(|items| Block(items));
+        blocc
     });
+    scope
 }
 pub fn parse_from_lex(
     input: &Vec<(Token, SimpleSpan)>,

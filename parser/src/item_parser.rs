@@ -1,6 +1,6 @@
 use crate::ast::{
-    EnumDeclaration, EnumVariantDeclaration, Expression, FunctionDeclaration, Import, Item,
-    Statement, StructDeclaration, StructField, Type,
+    Block, BlockElement, EnumDeclaration, EnumVariantDeclaration, Expression, FunctionDeclaration,
+    Import, Item, Statement, StructDeclaration, StructField, Type,
 };
 use crate::convenience_parsers::*;
 use crate::convenience_types::{Error, ParserInput, Spanned};
@@ -10,15 +10,15 @@ use chumsky::prelude::*;
 
 pub(super) fn item_parser<'tokens, 'src: 'tokens, T>(
     block: T,
-) -> (impl Parser<'tokens, ParserInput<'tokens, 'src>, Spanned<Item>, Error<'tokens>> + Clone)
+) -> (impl Parser<'tokens, ParserInput<'tokens, 'src>, Item, Error<'tokens>> + Clone)
 where
-    T: Parser<'tokens, ParserInput<'tokens, 'src>, Spanned<Expression>, Error<'tokens>> + Clone, // Statement
+    T: Parser<'tokens, ParserInput<'tokens, 'src>, Spanned<Block>, Error<'tokens>> + Clone, // Statement
 {
     choice((
-        fn_parser(block).map_with_span(Item::Function),
-        enum_parser().map_with_span(Item::Enum),
-        struct_parser().map_with_span(Item::Struct),
-        import_parser().map_with_span(Item::Import),
+        fn_parser(block).map(Item::Function),
+        enum_parser().map(Item::Enum),
+        struct_parser().map(Item::Struct),
+        import_parser().map(Item::Import),
     ))
 }
 pub(super) fn fn_parser<'tokens, 'src: 'tokens, T>(
@@ -30,7 +30,7 @@ pub(super) fn fn_parser<'tokens, 'src: 'tokens, T>(
     Error<'tokens>,               // Error Type
 > + Clone)
 where
-    T: Parser<'tokens, ParserInput<'tokens, 'src>, Spanned<Expression>, Error<'tokens>> + Clone, // Statement
+    T: Parser<'tokens, ParserInput<'tokens, 'src>, Spanned<Block>, Error<'tokens>> + Clone, // Statement
 {
     // fn = type name ":" (ident "#" type ,)* block
     let function = type_parser()
@@ -51,7 +51,7 @@ where
         )
         .then(block.clone()) // TODO again using Block parser to parse a block
         .map(
-            |(((return_type, name), arguments), block)| Statement::FunctionDeclaration {
+            |(((return_type, name), arguments), block)| FunctionDeclaration {
                 name,
                 return_type,
                 arguments,
@@ -84,7 +84,7 @@ pub(super) fn struct_parser<'tokens, 'src: 'tokens>() -> impl Parser<
         )
         .then_ignore(separator())
         .then_ignore(just(Token::Semicolon))
-        .map_with_span(|(struct_name, fields), span| -> (Statement, SimpleSpan) {
+        .map_with_span(|(struct_name, fields), span| {
             (
                 StructDeclaration {
                     name: struct_name,
