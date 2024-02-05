@@ -25,9 +25,9 @@ pub(super) fn fn_parser<'tokens, 'src: 'tokens, T>(
     block: T,
 ) -> (impl Parser<
     'tokens,
-    ParserInput<'tokens, 'src>,   // Input
-    Spanned<FunctionDeclaration>, // Output
-    Error<'tokens>,               // Error Type
+    ParserInput<'tokens, 'src>, // Input
+    FunctionDeclaration,        // Output
+    Error<'tokens>,             // Error Type
 > + Clone)
 where
     T: Parser<'tokens, ParserInput<'tokens, 'src>, Spanned<Block>, Error<'tokens>> + Clone, // Statement
@@ -59,6 +59,7 @@ where
             },
         )
         .labelled("function definition");
+    return function;
 }
 pub(super) fn struct_parser<'tokens, 'src: 'tokens>() -> impl Parser<
     'tokens,

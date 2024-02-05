@@ -19,7 +19,8 @@ pub struct Block(pub Vec<Spanned<BlockElement>>);
 
 #[derive(Debug, Clone)]
 pub enum Item {
-    Function(Spanned<FunctionDeclaration>),
+    //TODO: Readd span here
+    Function(FunctionDeclaration),
     Import(Spanned<Import>),
     Enum(Spanned<EnumDeclaration>),
     Struct(Spanned<StructDeclaration>),
@@ -30,7 +31,7 @@ pub struct FunctionDeclaration {
     pub name: Spanned<String>,
     pub return_type: Spanned<Type>,
     pub arguments: Vec<(Spanned<Type>, Spanned<String>)>,
-    pub body: Spanned<Expression>,
+    pub body: Spanned<Block>,
 }
 #[derive(Debug, Clone)]
 /// Obviously for importing stuff
@@ -88,7 +89,7 @@ pub struct Variable {
 pub struct If {
     pub(crate) condition: Box<Spanned<Expression>>,
     // FAT TODO: FIX THIS BLOCKS ARE STATEMENTS AND EXPRESSIONS AT THE SAME TIME
-    pub(crate) code_block: Spanned<Expression>,
+    pub(crate) code_block: Spanned<Block>,
 }
 #[derive(Clone, Debug)]
 pub enum Expression {

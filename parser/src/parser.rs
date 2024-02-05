@@ -31,7 +31,7 @@ pub(super) fn programm_parser<'tokens, 'src: 'tokens>() -> impl Parser<
 fn block_parser<'tokens, 'src: 'tokens>() -> impl Parser<
     'tokens,
     ParserInput<'tokens, 'src>, // Input
-    BlockElement,               // Output
+    Spanned<Block>,             // Output
     Error<'tokens>,             // Error Type
 > + Clone {
     // import, function, statement, scope
@@ -44,10 +44,11 @@ fn block_parser<'tokens, 'src: 'tokens>() -> impl Parser<
                 .map(BlockElement::SilentExpression),
         ));
         let blocc = block_element
+            .map_with_span(|item, span| (item, span))
             .separated_by(just(Token::Newline))
             .collect::<Vec<_>>()
             .delimited_by(just(Token::Lparen), just(Token::Rparen))
-            .map(|items| Block(items));
+            .map_with_span(|items, span| (Block(items), span));
         blocc
     });
     scope

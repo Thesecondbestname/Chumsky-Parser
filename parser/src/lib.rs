@@ -1,4 +1,5 @@
-pub(crate) use crate::lexer::Token;
+use chumsky::prelude::Rich;
+pub use lexer::Token;
 mod ast;
 mod expression_parser;
 mod item_parser;
@@ -9,12 +10,13 @@ mod util_parsers;
 
 pub use lexer::lex_arrow_program;
 pub use parser::parse_from_lex;
-
+pub use parser::range_into_span;
+pub type OutputError<'a> = Rich<'a, crate::lexer::Token>;
 mod convenience_types {
     use crate::Token;
     use chumsky::prelude::Rich;
     pub(crate) type Error<'tokens> = chumsky::extra::Err<Rich<'tokens, Token, Span>>;
-    pub(crate) type OutputError<'a> = Rich<'a, crate::lexer::Token>;
+    pub type OutputError<'a> = Rich<'a, crate::lexer::Token>;
     pub(crate) type Spanned<T> = (T, Span);
     pub(crate) type ParserInput<'tokens, 'src> =
         chumsky::input::SpannedInput<Token, Span, &'tokens [(Token, Span)]>;

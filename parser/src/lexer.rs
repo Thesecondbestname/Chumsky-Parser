@@ -36,7 +36,7 @@ impl Default for LexResult {
 }
 #[derive(Logos, Debug, PartialEq, Clone)]
 #[logos(skip r"[ \t\f]+|(?://[^\r\n]*|/\*[\s\S]*\*/)")]
-pub(super) enum Token {
+pub enum Token {
     #[token("+")]
     Add,
     #[token("\n")]

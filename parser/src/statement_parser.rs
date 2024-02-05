@@ -2,6 +2,7 @@ use crate::ast::*;
 use crate::convenience_parsers::ident_parser;
 use crate::convenience_types::{Error, ParserInput, Spanned};
 use crate::lexer::Token;
+use crate::util_parsers::separator;
 use chumsky::prelude::*;
 
 pub fn statement_parser<'tokens, 'src: 'tokens, T>(
@@ -48,6 +49,7 @@ where
 
             // loop => "loop" expr block
             let loop_ = just(Token::Loop)
+                .then_ignore(separator())
                 .ignore_then(expr.clone()) // TODO Patch Expression parser to parse blocks.
                 .labelled("block")
                 .map(|expr| -> Statement { Statement::Loop(expr) })
@@ -107,7 +109,6 @@ where
                 return_.map_with_span(|stmnt: Statement, span: SimpleSpan| (stmnt, span)),
                 if_.map_with_span(|stmnt: Statement, span: SimpleSpan| (stmnt, span)),
                 assignment,
-                expr.map(|expr| (Statement::Expression(expr.0), expr.1)), // Wichtig! Hier werden die expressions eigentlich geparsed. Alle anderen aufrufe zu Expression parser sind in dieser Iteration gefährlich.
             ))
         };
     (
