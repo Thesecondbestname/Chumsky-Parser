@@ -74,7 +74,7 @@ pub(super) mod expressions {
                         [(Token::Lbracket, Token::Rbracket)],
                         |span| vec![(Expression::ParserError, span)],
                     )))
-                    .labelled(r#"parenthesized expression"#);
+                    .labelled("parenthesized expression");
 
                 // Function calls have very high precedence so we prioritise them
                 let call = atom

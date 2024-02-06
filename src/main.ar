@@ -123,15 +123,31 @@ Statement [
     ]
 ]
 programm(
+    ...
     | import
     | enum
     | struct
     | trait
     | function
+    ...
 )
 scope (
+    ...
     | import
     | function 
     | statement
     | scope
+    ...
+)
+expression (
+    ...
+    | Block
+    | addition
+    ...
+)
+statement (
+    ...
+    | if
+    | expression ":3"
+    ...
 )

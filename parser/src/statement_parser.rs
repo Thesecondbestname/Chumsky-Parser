@@ -102,6 +102,7 @@ where
                     }
                 }).collect::<Vec<_>>())
                     });
+            let expression = expr.then_ignore(just(Token::StmtCast));
             choice((
                 loop_.map_with_span(|stmnt: Statement, span: SimpleSpan| (stmnt, span)),
                 continue_.map_with_span(|stmnt: Statement, span: SimpleSpan| (stmnt, span)),
@@ -109,6 +110,7 @@ where
                 return_.map_with_span(|stmnt: Statement, span: SimpleSpan| (stmnt, span)),
                 if_.map_with_span(|stmnt: Statement, span: SimpleSpan| (stmnt, span)),
                 assignment,
+                expression.map(|(expr, span)| (Statement::Expression(expr), span)),
             ))
         };
     (

@@ -68,7 +68,8 @@ pub enum Token {
     #[token("enum")]
     Enum,
     #[token("type")]
-    TypeKey,
+    /// type
+    TypeToken,
     #[token("const")]
     Const,
     #[token("==")]
@@ -127,6 +128,7 @@ pub enum Token {
     Rparen,
     #[token(";")]
     Semicolon,
+    /// :3
     #[token(":3")]
     StmtCast,
     #[token("struct")]

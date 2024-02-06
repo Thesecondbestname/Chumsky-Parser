@@ -36,7 +36,7 @@ fn test_structs() {
 }
 #[test]
 fn test_method_calls() {
-    let input = "(500.sqrt)";
+    let input = "(500.sqrt):3";
     test(input);
 }
 // #[test]
@@ -62,7 +62,7 @@ fn test_method_calls() {
 // }
 #[test]
 fn test_return() {
-    let input = "(return 3)";
+    let input = "return 3";
     test(input);
 }
 #[test]
@@ -126,45 +126,45 @@ fn print_error(error: OutputError, input: &String) {
 }
 #[test]
 fn test_span() {
-    let input = "(0..500)";
+    let input = "0..500:3";
     test(input);
 }
 #[test]
 fn test_use() {
-    let input = r#"(use foo_bar_baz)"#;
+    let input = r#"use foo_bar_baz"#;
     test(input);
 }
 #[test]
 fn test_seperator() {
-    let input = r#"(x= 50
-        print(ksjdfo) )"#;
+    let input = r#"x= 50
+        print(ksjdfo) "#;
     test(input);
 }
 #[test]
 fn test_angery_case() {
-    let input = r#"(x = 50.sqrt
+    let input = r#"x = 50.sqrt
         y = ksjdfo
-        print(Works?))"#;
+        print(Works?)"#;
     test(input);
 }
 #[test]
 fn test_assign() {
-    let input = r#"(x = 5 + 5 * (69 +420))"#;
+    let input = r#"x = 5 + 5 * (69 +420)"#;
     test(input);
 }
 #[test]
 fn test_bool_expr() {
-    let input = r#"(4 == 4 and 5 <= (5 + 1))"#;
+    let input = r#"4 == 4 and 5 <= (5 + 1)"#;
     test(input);
 }
 #[test]
 fn test_call() {
-    let input = r#"(foo.bar(test) )"#;
+    let input = r#"foo.bar(test) "#;
     test(input);
 }
 #[test]
 fn test_string() {
-    let input = r#"("Hi!")"#;
+    let input = r#""Hi!":3"#;
     test(input);
 }
 
@@ -175,17 +175,17 @@ fn test_multiple_expressions() {
 }
 #[test]
 fn test_conditions() {
-    let input = r#"(if 4 == 4 (print(foo)))"#;
+    let input = r#"if 4 == 4 (print(foo))"#;
     test(input);
 }
 #[test]
 fn test_call_string() {
-    let input = r#"(print ("foo"))"#;
+    let input = r#"print ("foo")"#;
     test(input);
 }
 #[test]
 fn test_math_operation() {
-    let input = r#"(2+7/(3+4))"#;
+    let input = r#"2+7/(3+4)"#;
     test(input);
 }
 fn test(input: &str) {

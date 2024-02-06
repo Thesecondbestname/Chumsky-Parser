@@ -18,6 +18,9 @@ pub enum BlockElement {
 pub struct Block(pub Vec<Spanned<BlockElement>>);
 
 #[derive(Debug, Clone)]
+pub struct DEPRECATED_Block(pub Vec<Spanned<Statement>>);
+
+#[derive(Debug, Clone)]
 pub enum Item {
     //TODO: Readd span here
     Function(FunctionDeclaration),
@@ -89,7 +92,7 @@ pub struct Variable {
 pub struct If {
     pub(crate) condition: Box<Spanned<Expression>>,
     // FAT TODO: FIX THIS BLOCKS ARE STATEMENTS AND EXPRESSIONS AT THE SAME TIME
-    pub(crate) code_block: Spanned<Block>,
+    pub(crate) code_block: Spanned<Expression>,
 }
 #[derive(Clone, Debug)]
 pub enum Expression {
@@ -100,7 +103,8 @@ pub enum Expression {
     FunctionCall(Box<Spanned<Self>>, Vec<Spanned<Self>>),
     MethodCall(Box<Spanned<Self>>, String, Vec<Spanned<Self>>),
     // FAT TODO: FIX THIS BLOCKS ARE STATEMENTS AND EXPRESSIONS AT THE SAME TIME
-    Block(Vec<Spanned<Statement>>),
+    Block(Block),
+    DEPRECATED_BLOCK(Vec<Spanned<Statement>>),
     Value(Value),
     IfElse(
         Box<Spanned<Expression>>,
