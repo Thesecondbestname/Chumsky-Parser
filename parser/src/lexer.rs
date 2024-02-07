@@ -1,4 +1,4 @@
-use crate::ast;
+use crate::{ast, impl_display};
 use logos::{Lexer, Logos};
 pub type Lex = Vec<(Token, std::ops::Range<usize>)>;
 
@@ -26,14 +26,7 @@ impl LexResult {
         &self.errors
     }
 }
-impl Default for LexResult {
-    fn default() -> Self {
-        LexResult {
-            tokens: vec![],
-            errors: vec![],
-        }
-    }
-}
+
 #[derive(Logos, Debug, PartialEq, Clone)]
 #[logos(skip r"[ \t\f]+|(?://[^\r\n]*|/\*[\s\S]*\*/)")]
 pub enum Token {
@@ -199,3 +192,55 @@ fn parse_escaped_string(inp: String) -> String {
     let raw_inp = inp.trim_start_matches('r').trim_matches('#');
     return raw_inp.trim_matches('\"').to_string();
 }
+impl_display!(Token, |s: &Token|{
+    match s {
+    Token::Add => "+".to_string(),
+    Token::Newline => "Line break".to_string(),
+    Token::Assign => "=".to_string(),
+    Token::Bang => "!".to_string(),
+    Token::Period => ".".to_string(),
+    Token::Colon => ":".to_string(),
+    Token::DoubleColon => "::".to_string(),
+    Token::Comma => ",".to_string(),
+    Token::Hashtag => "#".to_string(),
+    Token::Div => "/".to_string(),
+    Token::Else => "else".to_string(),
+    Token::Continue => "continue".to_string(),
+    Token::Break => "break".to_string(),
+    Token::Return => "return".to_string(),
+    Token::Enum => "enum".to_string(),
+    Token::TypeToken => "type".to_string(),
+    Token::Const => "const".to_string(),
+    Token::Eq => "==".to_string(),
+    Token::False => "false".to_string(),
+    Token::Gt => ">".to_string(),
+    Token::Span(Span { start, end }) => "{start}..{end}".to_string(),
+    Token::Ident(ident) => "ident: {ident}".to_string(),
+    Token::LiteralString(string) => r#""{string}""#.to_string(),
+    Token::If => "if".to_string(),
+    Token::Import => "use".to_string(),
+    Token::Lbracket => "[".to_string(),
+    Token::Integer(int) => "{int}".to_string(),
+    Token::Float(float) => "{float}".to_string(),
+    Token::Loop => "loop".to_string(),
+    Token::Lparen => "(".to_string(),
+    Token::Lt => ">".to_string(),
+    Token::Mod => "%".to_string(),
+    Token::QuestionMark => "?".to_string(),
+    Token::Mul => "*".to_string(),
+    Token::Neq => "!=".to_string(),
+    Token::Or => "|| or".to_string(),
+    Token::And => "&& and".to_string(),
+    Token::Xor => "".to_string(),
+    Token::PathSeperator => "::".to_string(),
+    Token::Rbracket => "]".to_string(),
+    Token::Rparen => ")".to_string(),
+    Token::Semicolon => ";".to_string(),
+    Token::StmtCast => ":3".to_string(),
+    Token::Struct => "struct".to_string(),
+    Token::Sub => "-".to_string(),
+    Token::True => "true".to_string(),
+    Token::Type(type_) => "{type_}".to_string(),
+    Token::While => "while".to_string(),
+}
+});

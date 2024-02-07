@@ -149,7 +149,7 @@ fn test_angery_case() {
 }
 #[test]
 fn test_assign() {
-    let input = r#"x = 5 + 5 * (69 +420)"#;
+    let input = "x = 5 + 5 * (69 +420)";
     test(input);
 }
 #[test]
@@ -221,7 +221,7 @@ fn test(input: &str) {
         let span = error.span();
         let expected = error
             .expected()
-            .map(|a| format!("{:?} ", a))
+            .map(|a| format!("{}, ", a))
             .collect::<Vec<_>>()
             .concat();
         let found = error.found();

@@ -261,6 +261,8 @@ impl Statement {
     }
 }
 #[macro_export]
+/// Takes a struct name as first argument and a closure of it's Struct
+/// Synopsys: (<struct_name>, |s: &<struct_name>| match s{...})
 macro_rules! impl_display {
     ($struct_name:ident, $write_calls:expr) => {
         impl std::fmt::Display for $struct_name {
@@ -270,7 +272,6 @@ macro_rules! impl_display {
         }
     };
 }
-/// used to implement the to_Expression trait.
 #[macro_export]
 macro_rules! impl_to_Instruction {
     ($name: ident, $closure :expr) => {
