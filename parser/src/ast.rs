@@ -34,7 +34,7 @@ pub struct FunctionDeclaration {
     pub name: Spanned<String>,
     pub return_type: Spanned<Type>,
     pub arguments: Vec<(Spanned<Type>, Spanned<String>)>,
-    pub body: Spanned<Block>,
+    pub body: Spanned<Expression>,
 }
 #[derive(Debug, Clone)]
 /// Obviously for importing stuff

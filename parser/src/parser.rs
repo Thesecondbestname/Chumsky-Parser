@@ -31,7 +31,7 @@ pub(super) fn programm_parser<'tokens, 'src: 'tokens>() -> impl Parser<
 fn block_parser<'tokens, 'src: 'tokens>() -> impl Parser<
     'tokens,
     ParserInput<'tokens, 'src>, // Input
-    Spanned<Block>,             // Output
+    Spanned<Expression>,        // Output
     Error<'tokens>,             // Error Type
 > + Clone {
     let mut program = None;
@@ -39,23 +39,26 @@ fn block_parser<'tokens, 'src: 'tokens>() -> impl Parser<
     let scope = recursive(|block| {
         let block_element = choice((
             item_parser(block.clone()).map_with_span(|item, span| BlockElement::Item((item, span))),
-            statement_parser(block.map(|(block, span)| (Expression::Block(block), span))).0
-            .map(BlockElement::Statement),
+            statement_parser(block).0.map(BlockElement::Statement),
         ));
-        program = Some(block_element
-            .map_with_span(|item, span| (item, span))
-            .separated_by(just(Token::Newline))
-            .collect::<Vec<_>>()
-            .map_with_span(|items, span| (Block(items), span)));
+        program = Some(
+            block_element
+                .map_with_span(|item, span| (item, span))
+                .separated_by(just(Token::Newline))
+                .collect::<Vec<_>>()
+                .map_with_span(|items, span| (Expression::Block(Block(items)), span)),
+        );
         // FIXME: Do it here instead, adjust the item_parser.
-        return program.unwrap().delimited_by(just(Token::Lparen), just(Token::Lparen));
+        return program
+            .unwrap()
+            .delimited_by(just(Token::Lparen), just(Token::Lparen));
     });
     scope
 }
 pub fn parse_from_lex(
     input: &Vec<(Token, SimpleSpan)>,
 ) -> ParseResult<Spanned<Expression>, Rich<Token>> {
-    programm_parser().parse(input.as_slice().spanned((input.len()..input.len()).into()))
+    block_parser().parse(input.as_slice().spanned((input.len()..input.len()).into()))
 }
 pub fn range_into_span(input: &Vec<(Token, std::ops::Range<usize>)>) -> Vec<(Token, SimpleSpan)> {
     input

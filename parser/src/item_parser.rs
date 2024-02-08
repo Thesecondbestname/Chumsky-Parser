@@ -12,7 +12,7 @@ pub(super) fn item_parser<'tokens, 'src: 'tokens, T>(
     block: T,
 ) -> (impl Parser<'tokens, ParserInput<'tokens, 'src>, Item, Error<'tokens>> + Clone)
 where
-    T: Parser<'tokens, ParserInput<'tokens, 'src>, Spanned<Block>, Error<'tokens>> + Clone, // Statement
+    T: Parser<'tokens, ParserInput<'tokens, 'src>, Spanned<Expression>, Error<'tokens>> + Clone, // Statement
 {
     choice((
         fn_parser(block).map(Item::Function),
@@ -30,7 +30,7 @@ pub(super) fn fn_parser<'tokens, 'src: 'tokens, T>(
     Error<'tokens>,             // Error Type
 > + Clone)
 where
-    T: Parser<'tokens, ParserInput<'tokens, 'src>, Spanned<Block>, Error<'tokens>> + Clone, // Statement
+    T: Parser<'tokens, ParserInput<'tokens, 'src>, Spanned<Expression>, Error<'tokens>> + Clone, // Statement
 {
     // fn = type name ":" (ident "#" type ,)* block
     let function = type_parser()
