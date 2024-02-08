@@ -4,12 +4,19 @@ pub(super) mod expressions {
     use crate::convenience_types::{Error, ParserInput, Spanned};
     use crate::Token;
     use chumsky::prelude::*;
-    pub(crate) fn expression_parser<'tokens, 'src: 'tokens>() -> impl Parser<
+    pub(crate) fn expression_parser<'tokens, 'src: 'tokens, T>(
+        block: T,
+    ) -> (impl Parser<
         'tokens,
         ParserInput<'tokens, 'src>, // Input
         Spanned<Expression>,        // Output
         Error<'tokens>,             // Error Type
-    > + Clone {
+    > + Clone)
+    where
+        T: Parser<'tokens, ParserInput<'tokens, 'src>, Spanned<Expression>, Error<'tokens>>
+            + Clone
+            + 'tokens,
+    {
         let ident = select! { Token::Ident(ident) => ident.clone().to_string() }
             .labelled("Identifier/ Name");
         let int = select! { Token::Integer(v) => v.clone() }.labelled("Whole AAh integer");
@@ -179,7 +186,7 @@ pub(super) mod expressions {
             };
 
             // Blocks are expressions but delimited with parentheses
-            let block = expression
+            let block = block
                 .clone()
                 .delimited_by(just(Token::Lparen), just(Token::Rparen))
                 // Attempt to recover anything that looks like a block but contains errors
@@ -189,16 +196,6 @@ pub(super) mod expressions {
                     [(Token::Lbracket, Token::Rbracket)],
                     |span| (Expression::ParserError, span),
                 )));
-
-            // HACK: This is the scetchiest implementation of this ever concieved
-            // It parses one block and then
-            // let block_chain =
-            //     block
-            //         .clone()
-            //         .foldl(block.clone().separated_by(just(Token::Newline)), |a, b| {
-            //             let span = a.1.start..b.1.end;
-            //             (Expression::Then(Box::new(a), Box::new(b)), span.into())
-            //         });
 
             choice((
                 block.labelled("block"),

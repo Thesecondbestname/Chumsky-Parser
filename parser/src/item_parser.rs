@@ -32,6 +32,7 @@ pub(super) fn fn_parser<'tokens, 'src: 'tokens, T>(
 where
     T: Parser<'tokens, ParserInput<'tokens, 'src>, Spanned<Expression>, Error<'tokens>> + Clone, // Statement
 {
+    let block = block.delimited_by(just(Token::Lparen), just(Token::Rparen));
     // fn = type name ":" (ident "#" type ,)* block
     let function = type_parser()
         .labelled("return type")

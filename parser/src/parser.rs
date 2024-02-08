@@ -6,54 +6,49 @@ use crate::parsers::statement_parser;
 use crate::Token;
 use chumsky::prelude::*;
 
-pub(super) fn programm_parser<'tokens, 'src: 'tokens>() -> impl Parser<
-    'tokens,
-    ParserInput<'tokens, 'src>, // Input
-    Spanned<Expression>,        // Output
-    Error<'tokens>,             // Error Type
-> + Clone {
-    // let mut _code = None;
-    // let programm_parser = recursive(|line_expr| {
-    let code = statement_parser((expression_parser()))
-        .0
-        .separated_by(just(Token::Newline))
-        .allow_trailing()
-        .collect::<Vec<_>>()
-        .map_with_span(|expr, span| (Expression::DEPRECATED_BLOCK(expr), span));
-    let block = code
-        .clone()
-        .delimited_by(just(Token::Lparen), just(Token::Lparen));
-    // _code = Some(code);
-    code
-    // });
-    // programm_parser
-}
+// pub(super) fn programm_parser<'tokens, 'src: 'tokens>() -> impl Parser<
+//     'tokens,
+//     ParserInput<'tokens, 'src>, // Input
+//     Spanned<Expression>,        // Output
+//     Error<'tokens>,             // Error Type
+// > + Clone {
+//     // let code = statement_parser((expression_parser()))
+//     //     .0
+//     //     .separated_by(just(Token::Newline))
+//     //     .allow_trailing()
+//     //     .collect::<Vec<_>>()
+//     //     .map_with_span(|expr, span| (Expression::DEPRECATED_BLOCK(expr), span));
+//     // let block = code
+//     //     .clone()
+//     //     .delimited_by(just(Token::Lparen), just(Token::Lparen));
+//     // code
+//     let programm = item_parser()
+// }
 fn block_parser<'tokens, 'src: 'tokens>() -> impl Parser<
     'tokens,
     ParserInput<'tokens, 'src>, // Input
     Spanned<Expression>,        // Output
     Error<'tokens>,             // Error Type
 > + Clone {
-    let mut program = None;
     // import, function, statement, scope
     let scope = recursive(|block| {
         let block_element = choice((
-            item_parser(block.clone()).map_with_span(|item, span| BlockElement::Item((item, span))),
-            statement_parser(block).0.map(BlockElement::Statement),
+            item_parser(block.clone()).map_with_span(|item, span| {
+                println!("Item: {item:#?}");
+                BlockElement::Item((item, span))
+            }),
+            statement_parser(expression_parser(block).then_ignore(just(Token::StmtCast)))
+                .0
+                .map(BlockElement::Statement),
         ));
-        program = Some(
-            block_element
-                .map_with_span(|item, span| (item, span))
-                .separated_by(just(Token::Newline))
-                .collect::<Vec<_>>()
-                .map_with_span(|items, span| (Expression::Block(Block(items)), span)),
-        );
-        // FIXME: Do it here instead, adjust the item_parser.
-        return program
-            .unwrap()
-            .delimited_by(just(Token::Lparen), just(Token::Lparen));
+        let program = block_element
+            .map_with_span(|item, span| (item, span))
+            .separated_by(just(Token::Newline))
+            .collect::<Vec<_>>()
+            .map_with_span(|items, span| (Expression::Block(Block(items)), span));
+        return program;
     });
-    scope
+    return scope;
 }
 pub fn parse_from_lex(
     input: &Vec<(Token, SimpleSpan)>,
