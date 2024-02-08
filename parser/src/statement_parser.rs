@@ -1,6 +1,7 @@
 use crate::ast::*;
 use crate::convenience_parsers::ident_parser;
 use crate::convenience_types::{Error, ParserInput, Spanned};
+use crate::parsers::expression_parser;
 use crate::lexer::Token;
 use crate::util_parsers::separator;
 use chumsky::prelude::*;
@@ -102,7 +103,7 @@ where
                     }
                 }).collect::<Vec<_>>())
                     });
-            let expression = expr.then_ignore(just(Token::StmtCast));
+            let expression = expression_parser().then_ignore(just(Token::StmtCast));
             choice((
                 loop_.map_with_span(|stmnt: Statement, span: SimpleSpan| (stmnt, span)),
                 continue_.map_with_span(|stmnt: Statement, span: SimpleSpan| (stmnt, span)),

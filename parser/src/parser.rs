@@ -34,23 +34,21 @@ fn block_parser<'tokens, 'src: 'tokens>() -> impl Parser<
     Spanned<Block>,             // Output
     Error<'tokens>,             // Error Type
 > + Clone {
+    let mut program = None;
     // import, function, statement, scope
-    // FIXME: Cast the blocks into expressions
     let scope = recursive(|block| {
         let block_element = choice((
-            item_parser(block).map_with_span(|item, span| BlockElement::Item((item, span))),
-            // trait bounds not satisfied :(
-
-            // statement_parser(block.map(|block| (Expression::Block(block.0), block.1)))
-            // .map(BlockElement::Statement),
+            item_parser(block.clone()).map_with_span(|item, span| BlockElement::Item((item, span))),
+            statement_parser(block.map(|(block, span)| (Expression::Block(block), span))).0
+            .map(BlockElement::Statement),
         ));
-        let blocc = block_element
+        program = Some(block_element
             .map_with_span(|item, span| (item, span))
             .separated_by(just(Token::Newline))
             .collect::<Vec<_>>()
-            .delimited_by(just(Token::Lparen), just(Token::Lparen))
-            .map_with_span(|items, span| (Block(items), span));
-        blocc
+            .map_with_span(|items, span| (Block(items), span)));
+        // FIXME: Do it here instead, adjust the item_parser.
+        return program.unwrap().delimited_by(just(Token::Lparen), just(Token::Lparen));
     });
     scope
 }
