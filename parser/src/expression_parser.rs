@@ -42,7 +42,6 @@ pub(super) mod expressions {
                         (Expression::Value(Value::Option(Box::new(expr))), span)
                     })
                     // Atoms can also just be normal expressions, but surrounded with parentheses
-                    // TODO: Here is where I'd add in my block parser
                     .or(expression
                         .clone()
                         .delimited_by(just(Token::Lparen), just(Token::Rparen)))
@@ -198,9 +197,9 @@ pub(super) mod expressions {
                 )));
 
             choice((
-                block.labelled("block"),
-                // Expressions, chained by semicolons, are statements
                 inline_expression.clone(),
+                // // Expressions, chained by semicolons, are statements
+                block.labelled("block"),
             ))
         })
     }

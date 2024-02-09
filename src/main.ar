@@ -123,31 +123,17 @@ Statement [
     ]
 ]
 programm(
-    ...
-    | import
-    | enum
-    | struct
-    | trait
-    | function
-    ...
+    items(stmt(expression))
 )
-scope (
-    ...
-    | import
-    | function 
-    | statement
-    | scope
-    ...
+item(
+    struct
+    enum
+    fn( expression)
 )
 expression (
-    ...
-    | Block
-    | addition
-    ...
+    block
 )
-statement (
-    ...
-    | if
-    | expression ":3"
-    ...
+block (
+    item(expression)
+    stmt(expression)
 )

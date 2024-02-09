@@ -33,13 +33,8 @@ fn block_parser<'tokens, 'src: 'tokens>() -> impl Parser<
     // import, function, statement, scope
     let scope = recursive(|block| {
         let block_element = choice((
-            item_parser(block.clone()).map_with_span(|item, span| {
-                println!("Item: {item:#?}");
-                BlockElement::Item((item, span))
-            }),
-            statement_parser(expression_parser(block).then_ignore(just(Token::StmtCast)))
-                .0
-                .map(BlockElement::Statement),
+            item_parser(block.clone()).map_with_span(|item, span| BlockElement::Item((item, span))),
+            statement_parser(expression_parser(block)).map(BlockElement::Statement),
         ));
         let program = block_element
             .map_with_span(|item, span| (item, span))

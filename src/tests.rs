@@ -39,27 +39,15 @@ fn test_method_calls() {
     let input = "(500.sqrt):3";
     test(input);
 }
-// #[test]
-// fn test_loops() {
-//     let input = "loop (
-//         a = 5
-//         return 3
-//         continue a
-//     \n)";
-
-//     let (parse, errors, has_errors) = parser::lex_arrow_program(input.to_owned());
-//     let lex = parse
-//         .into_iter()
-//         .map(|pair| (pair.0.clone(), SimpleSpan::new(pair.1.start, pair.1.end)))
-//         .collect();
-//     let parse = crate::parser::statement_parser::statement_parser()
-//         .3
-//         .parse(lex.as_slice().spanned((input.len()..input.len()).into()));
-//     for error in parse.clone().into_errors() {
-//         print_error(error, &input.to_string());
-//     }
-//     assert!(false)
-// }
+#[test]
+fn test_loops() {
+    let input = "loop (
+        a = 5
+        return 3
+        continue a
+    \n)";
+    test(input);
+}
 #[test]
 fn test_return() {
     let input = "return 3";

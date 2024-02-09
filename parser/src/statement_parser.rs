@@ -1,16 +1,12 @@
 use crate::ast::*;
-use crate::convenience_parsers::ident_parser;
+use crate::convenience_parsers::{ident_parser, separator};
 use crate::convenience_types::{Error, ParserInput, Spanned};
 use crate::lexer::Token;
-use crate::parsers::expression_parser;
-use crate::util_parsers::separator;
 use chumsky::prelude::*;
 
 pub fn statement_parser<'tokens, 'src: 'tokens, T>(
     expr: T,
-) -> (
-    impl Parser<'tokens, ParserInput<'tokens, 'src>, Spanned<Statement>, Error<'tokens>> + Clone, // Statement
-)
+) -> (impl Parser<'tokens, ParserInput<'tokens, 'src>, Spanned<Statement>, Error<'tokens>> + Clone)
 where
     T: Parser<'tokens, ParserInput<'tokens, 'src>, Spanned<Expression>, Error<'tokens>>
         + Clone
@@ -53,10 +49,7 @@ where
                 .then_ignore(separator())
                 .ignore_then(expr.clone()) // TODO Patch Expression parser to parse blocks.
                 .labelled("block")
-                .map(|expr| -> Statement {
-                    println!("Loop: {:#?}", expr);
-                    Statement::Loop(expr)
-                })
+                .map(|expr| -> Statement { Statement::Loop(expr) })
                 .labelled("loop statement");
             r#loop = Some(loop_.clone());
 
@@ -113,10 +106,11 @@ where
                 return_.map_with_span(|stmnt: Statement, span: SimpleSpan| (stmnt, span)),
                 if_.map_with_span(|stmnt: Statement, span: SimpleSpan| (stmnt, span)),
                 assignment,
-                expr.map(|(expr, span)| (Statement::Expression(expr), span)),
+                expr.then_ignore(just(Token::StmtCast))
+                    .map(|(expr, span)| (Statement::Expression(expr), span)),
             ))
         };
-    (statement,)
+    statement
 }
 
 // block => ( [statement separator]* )
