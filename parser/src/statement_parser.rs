@@ -1,4 +1,4 @@
-use crate::ast::*;
+use crate::ast::{Expression, If, Statement, Value};
 use crate::convenience_parsers::{ident_parser, separator};
 use crate::convenience_types::{Error, ParserInput, Spanned};
 use crate::lexer::Token;
@@ -14,13 +14,12 @@ where
 {
     // let colon = just(Token::Colon).labelled(":");
     // let comma = just(Token::Comma).labelled(",");
-    let mut r#loop = None;
     let statement =
         {
             // continue => "continue" expr
             let continue_ = just(Token::Continue)
                 .ignored()
-                .map(|_| -> Statement { Statement::Continue })
+                .map(|()| -> Statement { Statement::Continue })
                 .labelled("Continue");
 
             // break => "break" expr
@@ -33,14 +32,15 @@ where
             let return_ = just(Token::Return)
                 .ignore_then(expr.clone().or_not())
                 .map(|expr| -> Statement {
-                    if let Some(exp) = expr {
-                        Statement::Return(Box::new(exp))
-                    } else {
-                        Statement::Return(Box::new((
-                            Expression::Value(Value::Tuple(vec![])),
-                            SimpleSpan::new(0, 0),
-                        )))
-                    }
+                    expr.map_or_else(
+                        || {
+                            Statement::Return(Box::new((
+                                Expression::Value(Value::Tuple(vec![])),
+                                SimpleSpan::new(0, 0),
+                            )))
+                        },
+                        |exp| Statement::Return(Box::new(exp)),
+                    )
                 })
                 .labelled("Return");
 
@@ -51,7 +51,6 @@ where
                 .labelled("block")
                 .map(|expr| -> Statement { Statement::Loop(expr) })
                 .labelled("loop statement");
-            r#loop = Some(loop_.clone());
 
             // assignment => ident "=" expr
             let assignment = ident_parser()
@@ -105,6 +104,7 @@ where
                 break_.map_with_span(|stmnt: Statement, span: SimpleSpan| (stmnt, span)),
                 return_.map_with_span(|stmnt: Statement, span: SimpleSpan| (stmnt, span)),
                 if_.map_with_span(|stmnt: Statement, span: SimpleSpan| (stmnt, span)),
+                if_else.map_with_span(|stmnt: Statement, span: SimpleSpan| (stmnt, span)),
                 assignment,
                 expr.then_ignore(just(Token::StmtCast))
                     .map(|(expr, span)| (Statement::Expression(expr), span)),

@@ -1,10 +1,11 @@
-pub(super) mod expressions {
+#[allow(clippy::too_many_lines)]
+pub mod expressions {
     use crate::ast::{BinaryOp, ComparisonOp, Expression, MathOp, Number, Value};
     use crate::convenience_parsers::separator;
     use crate::convenience_types::{Error, ParserInput, Spanned};
     use crate::Token;
     use chumsky::prelude::*;
-    pub(crate) fn expression_parser<'tokens, 'src: 'tokens, T>(
+    pub fn expression_parser<'tokens, 'src: 'tokens, T>(
         block: T,
     ) -> (impl Parser<
         'tokens,
@@ -17,19 +18,17 @@ pub(super) mod expressions {
             + Clone
             + 'tokens,
     {
-        let ident = select! { Token::Ident(ident) => ident.clone().to_string() }
-            .labelled("Identifier/ Name");
-        let int = select! { Token::Integer(v) => v.clone() }.labelled("Whole AAh integer");
-        let float = select! { Token::Float(v) => v.clone() }.labelled("Floating point");
+        let ident = select! { Token::Ident(ident) => ident }.labelled("Identifier/ Name");
+        let int = select! { Token::Integer(v) => v }.labelled("Whole AAh integer");
+        let float = select! { Token::Float(v) => v }.labelled("Floating point");
         let number = int
             .map(|int| Expression::Value(Value::Number(Number::Int(int))))
             .or(float.map(|float| Expression::Value(Value::Number(Number::Float(float)))));
         let bool = select! {Token::True => Expression::Value(Value::Bool(true)),
         Token::False => Expression::Value(Value::Bool(false))}
         .labelled("Boolean");
-        let string =
-            select! {Token::LiteralString(s) => Expression::Value(Value::String(s.clone()))}
-                .labelled("String");
+        let string = select! {Token::LiteralString(s) => Expression::Value(Value::String(s))}
+            .labelled("String");
         let span = select! {Token::Span(s) => Expression::Value(Value::Span(s.start, s.end))};
 
         // The recursive expression Part
@@ -37,8 +36,8 @@ pub(super) mod expressions {
             let inline_expression = {
                 // Atom which is the smallest expression.
                 let atom = choice((ident.map(Expression::Ident), number, bool, string, span))
-                    .then(just(Token::QuestionMark).or_not())
-                    .map_with_span(|(expr, optional), span: SimpleSpan| {
+                    .then_ignore(just(Token::QuestionMark).or_not())
+                    .map_with_span(|expr, span: SimpleSpan| {
                         (Expression::Value(Value::Option(Box::new(expr))), span)
                     })
                     // Atoms can also just be normal expressions, but surrounded with parentheses
@@ -100,18 +99,14 @@ pub(super) mod expressions {
                     .clone()
                     .then_ignore(separator())
                     .then_ignore(just(Token::Period))
-                    .then(ident.clone())
+                    .then(ident)
                     .then(list.clone().or_not())
                     .map_with_span(|((called_on, name), args), span| {
                         (
                             Expression::MethodCall(
                                 Box::new(called_on),
                                 name,
-                                if let Some(arguments) = args {
-                                    arguments
-                                } else {
-                                    vec![]
-                                },
+                                args.map_or_else(std::vec::Vec::new, |arguments| arguments),
                             ),
                             span,
                         )

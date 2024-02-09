@@ -1,17 +1,17 @@
 use crate::ast::Type;
-use crate::convenience_types::*;
+use crate::convenience_types::{Error, ParserInput};
 use crate::Token;
 use chumsky::prelude::*;
 
-pub(super) fn ident_parser<'tokens, 'src: 'tokens>() -> impl Parser<
+pub fn ident_parser<'tokens, 'src: 'tokens>() -> impl Parser<
     'tokens,
     ParserInput<'tokens, 'src>, // Input
     String,                     // Output
     Error<'tokens>,             // Error Type
 > + Clone {
-    select! { Token::Ident(ident) => ident.clone().to_string() }.labelled("Identifier/ Name")
+    select! { Token::Ident(ident) => ident }.labelled("Identifier/ Name")
 }
-pub(super) fn separator<'tokens, 'src: 'tokens>() -> impl Parser<
+pub fn separator<'tokens, 'src: 'tokens>() -> impl Parser<
     'tokens,
     ParserInput<'tokens, 'src>, // Input
     (),                         // Output
@@ -19,13 +19,13 @@ pub(super) fn separator<'tokens, 'src: 'tokens>() -> impl Parser<
 > + Clone {
     just(Token::Newline).repeated()
 }
-pub(super) fn type_parser<'tokens, 'src: 'tokens>() -> impl Parser<
+pub fn type_parser<'tokens, 'src: 'tokens>() -> impl Parser<
     'tokens,
     ParserInput<'tokens, 'src>, // Input
     Type,                       // Output
     Error<'tokens>,             // Error Type
 > + Clone {
-    let int = select! { Token::Integer(v) => v.clone() }.labelled("Whole AAh integer");
+    let int = select! { Token::Integer(v) => v }.labelled("Whole AAh integer");
     recursive(|r#type| {
         let primitives = select! {Token::Type(x) => x,}.labelled("primitive type");
         let tuple = r#type

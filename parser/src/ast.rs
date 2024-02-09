@@ -79,7 +79,7 @@ pub enum Statement {
     // Becomes a bit more obvious that they shouldn't return anything when looking at continue.
     Continue,
     /// This is the one where a struct is actually constructed
-    WhileLoop(Spanned<Expression>, Box<Vec<Spanned<Expression>>>),
+    WhileLoop(Spanned<Expression>, Vec<Spanned<Expression>>),
     /// An expression whose return type is ignored is a statement
     Expression(Expression),
 }
@@ -242,10 +242,10 @@ crate::impl_display!(Statement, |s: &Statement| {
     }
 });
 impl Number {
-    pub fn from_i32(num: i32) -> Number {
+    pub fn from_i32(num: i32) -> Self {
         Number::Int(num.into())
     }
-    pub fn from_f32(num: f32) -> Number {
+    pub fn from_f32(num: f32) -> Self {
         Number::Float(num.into())
     }
 }
@@ -262,7 +262,7 @@ impl Statement {
 }
 #[macro_export]
 /// Takes a struct name as first argument and a closure of it's Struct
-/// Synopsys: (<struct_name>, |s: &<struct_name>| match s{...})
+/// Synopsys: (`struct_name`, |s: &`struct_name`| match s{...})
 macro_rules! impl_display {
     ($struct_name:ident, $write_calls:expr) => {
         impl std::fmt::Display for $struct_name {

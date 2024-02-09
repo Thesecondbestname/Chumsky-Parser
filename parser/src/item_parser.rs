@@ -1,14 +1,14 @@
 use crate::ast::{
-    Block, BlockElement, EnumDeclaration, EnumVariantDeclaration, Expression, FunctionDeclaration,
-    Import, Item, Statement, StructDeclaration, StructField, Type,
+    EnumDeclaration, EnumVariantDeclaration, Expression, FunctionDeclaration, Import, Item,
+    Statement, StructDeclaration, StructField, Type,
 };
-use crate::convenience_parsers::*;
+use crate::convenience_parsers::{ident_parser, separator, type_parser};
 use crate::convenience_types::{Error, ParserInput, Spanned};
 use crate::lexer::Token;
 
 use chumsky::prelude::*;
 
-pub(super) fn item_parser<'tokens, 'src: 'tokens, T>(
+pub fn item_parser<'tokens, 'src: 'tokens, T>(
     block: T,
 ) -> (impl Parser<'tokens, ParserInput<'tokens, 'src>, Item, Error<'tokens>> + Clone)
 where
@@ -21,7 +21,7 @@ where
         import_parser().map(Item::Import),
     ))
 }
-pub(super) fn fn_parser<'tokens, 'src: 'tokens, T>(
+pub fn fn_parser<'tokens, 'src: 'tokens, T>(
     block: T,
 ) -> (impl Parser<
     'tokens,
@@ -62,7 +62,7 @@ where
         .labelled("function definition");
     return function;
 }
-pub(super) fn struct_parser<'tokens, 'src: 'tokens>() -> impl Parser<
+pub fn struct_parser<'tokens, 'src: 'tokens>() -> impl Parser<
     'tokens,
     ParserInput<'tokens, 'src>, // Input
     Spanned<StructDeclaration>, // Output
@@ -99,7 +99,7 @@ pub(super) fn struct_parser<'tokens, 'src: 'tokens>() -> impl Parser<
     r#struct
 }
 
-pub(super) fn enum_parser<'tokens, 'src: 'tokens>(
+pub fn enum_parser<'tokens, 'src: 'tokens>(
 ) -> impl Parser<'tokens, ParserInput<'tokens, 'src>, Spanned<EnumDeclaration>, Error<'tokens>> + Clone
 {
     let enum_fields = ident_parser()
@@ -131,7 +131,7 @@ pub(super) fn enum_parser<'tokens, 'src: 'tokens>(
     r#enum
 }
 
-pub(super) fn import_parser<'tokens, 'src: 'tokens>(
+pub fn import_parser<'tokens, 'src: 'tokens>(
 ) -> impl Parser<'tokens, ParserInput<'tokens, 'src>, Spanned<Import>, Error<'tokens>> + Clone {
     let ident = ident_parser();
     let import = just(Token::Import)

@@ -6,7 +6,7 @@ fn test_basic_lex() {
     let lex = r#"use io_print
     x = xöla
     y = 69 / (56 - 0.45)
-    print(Works?)
+    print(Works?):3
     enum Foo:
         baz
     ;
@@ -17,12 +17,12 @@ fn test_basic_lex() {
     int add: x# int, y# int (
         x + y
     // Some kinda idk  
-    add (4,5).sqrt
+    add (4,5).sqrt:3
     
     if x == 4  (
-        print ("oooops!")
+        print ("oooops!"):3
     ) else (
-        print ("phew")
+        print ("phew"):3
     )"#;
     test(lex);
 }
@@ -67,51 +67,10 @@ fn test_function_definitions() {
     frame #Canvas, 
     window #Window( 
         a-3
-    )"
-    .to_string();
-    let mut colors = ColorGenerator::new();
-    let _a = colors.next();
-    let _b = colors.next();
-    let _out = Color::Fixed(81);
-    let lex_result = parser::lex_arrow_program(&input);
-    if !lex_result.is_ok() {
-        assert!(false);
-    }
-    {
-        let lex = range_into_span(lex_result.tokens());
-        let parse = parse_from_lex(&lex);
-        if let Some(_out) = parse.clone().into_output() {
-        } else {
-        };
-        for error in parse.clone().into_errors() {
-            print_error(error, &input);
-        }
-        assert!(!parse.has_errors());
-    }
+    )";
+    test(input);
 }
 
-fn print_error(error: OutputError, input: &String) {
-    let span = error.span();
-    let expected = error
-        .expected()
-        .map(|a| format!("{:#?} ", a))
-        .collect::<Vec<_>>()
-        .concat();
-    let found = error.found();
-    let context = error.contexts().collect::<Vec<_>>();
-    let _reason = error.reason();
-    Report::build(ReportKind::Error, (), span.start)
-        .with_message(format!("error while parsing: {context:?}"))
-        .with_label(
-            Label::new(span.start..span.end)
-                .with_message(format!("but found {:#?}", found.unwrap()))
-                .with_color(Color::Red),
-        )
-        .with_note(format!("Expected {expected:#?}"))
-        .finish()
-        .eprint(Source::from(input.clone()))
-        .expect("Whooo unable to create error...");
-}
 #[test]
 fn test_span() {
     let input = "0..500:3";
@@ -125,14 +84,14 @@ fn test_use() {
 #[test]
 fn test_seperator() {
     let input = r#"x= 50
-        print(ksjdfo) "#;
+        print(ksjdfo):3 "#;
     test(input);
 }
 #[test]
 fn test_angery_case() {
     let input = r#"x = 50.sqrt
         y = ksjdfo
-        print(Works?)"#;
+        print(Works?):3"#;
     test(input);
 }
 #[test]
@@ -142,12 +101,12 @@ fn test_assign() {
 }
 #[test]
 fn test_bool_expr() {
-    let input = r#"4 == 4 and 5 <= (5 + 1)"#;
+    let input = r#"4 == 4 and 5 <= (5 + 1):3"#;
     test(input);
 }
 #[test]
 fn test_call() {
-    let input = r#"foo.bar(test) "#;
+    let input = r#"foo.bar(test) :3"#;
     test(input);
 }
 #[test]
@@ -158,22 +117,22 @@ fn test_string() {
 
 #[test]
 fn test_multiple_expressions() {
-    let input = "(x = 4+5\n x= 32)";
+    let input = "(x = 4+5\n x= 32):3";
     test(input);
 }
 #[test]
 fn test_conditions() {
-    let input = r#"if 4 == 4 (print(foo))"#;
+    let input = r#"if 4 == 4 (print(foo):3)"#;
     test(input);
 }
 #[test]
 fn test_call_string() {
-    let input = r#"print ("foo")"#;
+    let input = r#"print ("foo"):3"#;
     test(input);
 }
 #[test]
 fn test_math_operation() {
-    let input = r#"2+7/(3+4)"#;
+    let input = r#"2+7/(3+4):3"#;
     test(input);
 }
 fn test(input: &str) {
@@ -200,11 +159,14 @@ fn test(input: &str) {
 
     let lex = range_into_span(lex_result.tokens());
     let parse = parse_from_lex(&lex);
-    if let Some(out) = parse.clone().into_output() {
-        println!("\n{}: {:#?}", "PARSER OUTPUT".green(), out);
-    } else {
-        println!("\n{}", "No parser Output".yellow());
-    };
+    parse.clone().into_output().map_or_else(
+        || {
+            println!("\n{}", "No parser Output".yellow());
+        },
+        |out| {
+            println!("\n{}: {:#?}", "PARSER OUTPUT".green(), out);
+        },
+    );
     for error in parse.clone().into_errors() {
         let span = error.span();
         let expected = error
@@ -228,4 +190,26 @@ fn test(input: &str) {
             .expect("Whooo unable to create error...");
     }
     assert!(!parse.has_errors());
+}
+fn print_error(error: OutputError, input: &str) {
+    let span = error.span();
+    let expected = error
+        .expected()
+        .map(|a| format!("{:#?} ", a))
+        .collect::<Vec<_>>()
+        .concat();
+    let found = error.found();
+    let context = error.contexts().collect::<Vec<_>>();
+    let _reason = error.reason();
+    Report::build(ReportKind::Error, (), span.start)
+        .with_message(format!("error while parsing: {context:?}"))
+        .with_label(
+            Label::new(span.start..span.end)
+                .with_message(format!("but found {:#?}", found.unwrap()))
+                .with_color(Color::Red),
+        )
+        .with_note(format!("Expected {expected:#?}"))
+        .finish()
+        .eprint(Source::from(input.clone()))
+        .expect("Whooo unable to create error...");
 }
