@@ -46,9 +46,7 @@ where
 
             // loop => "loop" expr block
             let loop_ = just(Token::Loop)
-                .then_ignore(separator())
-                .ignore_then(expr.clone()) // TODO Patch Expression parser to parse blocks.
-                .labelled("block")
+                .ignore_then(expr.clone())
                 .map(|expr| -> Statement { Statement::Loop(expr) })
                 .labelled("loop statement");
 
@@ -73,7 +71,6 @@ where
                     |span| (Expression::ParserError, span),
                 )))
                 .then(expr.clone())
-                .delimited_by(just(Token::Lparen), just(Token::Rparen))
                 .clone()
                 .map_with_span(|(condition, code_block), span| -> Statement {
                     Statement::If((
@@ -104,7 +101,6 @@ where
                 break_.map_with_span(|stmnt: Statement, span: SimpleSpan| (stmnt, span)),
                 return_.map_with_span(|stmnt: Statement, span: SimpleSpan| (stmnt, span)),
                 if_.map_with_span(|stmnt: Statement, span: SimpleSpan| (stmnt, span)),
-                if_else.map_with_span(|stmnt: Statement, span: SimpleSpan| (stmnt, span)),
                 assignment,
                 expr.then_ignore(just(Token::StmtCast))
                     .map(|(expr, span)| (Statement::Expression(expr), span)),

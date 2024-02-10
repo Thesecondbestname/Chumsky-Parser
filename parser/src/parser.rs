@@ -6,24 +6,6 @@ use crate::parsers::statement_parser;
 use crate::Token;
 use chumsky::prelude::*;
 
-// pub(super) fn programm_parser<'tokens, 'src: 'tokens>() -> impl Parser<
-//     'tokens,
-//     ParserInput<'tokens, 'src>, // Input
-//     Spanned<Expression>,        // Output
-//     Error<'tokens>,             // Error Type
-// > + Clone {
-//     // let code = statement_parser((expression_parser()))
-//     //     .0
-//     //     .separated_by(just(Token::Newline))
-//     //     .allow_trailing()
-//     //     .collect::<Vec<_>>()
-//     //     .map_with_span(|expr, span| (Expression::DEPRECATED_BLOCK(expr), span));
-//     // let block = code
-//     //     .clone()
-//     //     .delimited_by(just(Token::Lparen), just(Token::Lparen));
-//     // code
-//     let programm = item_parser()
-// }
 fn block_parser<'tokens, 'src: 'tokens>() -> impl Parser<
     'tokens,
     ParserInput<'tokens, 'src>, // Input

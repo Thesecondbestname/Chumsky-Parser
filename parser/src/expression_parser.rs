@@ -182,6 +182,7 @@ pub mod expressions {
             // Blocks are expressions but delimited with parentheses
             let block = block
                 .clone()
+                .delimited_by(separator(), separator())
                 .delimited_by(just(Token::Lparen), just(Token::Rparen))
                 // Attempt to recover anything that looks like a block but contains errors
                 .recover_with(via_parser(nested_delimiters(
@@ -191,11 +192,7 @@ pub mod expressions {
                     |span| (Expression::ParserError, span),
                 )));
 
-            choice((
-                inline_expression.clone(),
-                // // Expressions, chained by semicolons, are statements
-                block.labelled("block"),
-            ))
+            choice((inline_expression.clone(), block.labelled("block")))
         })
     }
 }
