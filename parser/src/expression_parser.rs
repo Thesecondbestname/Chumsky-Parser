@@ -31,15 +31,26 @@ pub mod expressions {
             .labelled("String");
         let span = select! {Token::Span(s) => Expression::Value(Value::Span(s.start, s.end))};
 
+        // Blocks are expressions but delimited with parentheses
+        let block = block
+            .clone()
+            .delimited_by(
+                just(Token::Lparen).delimited_by(separator(), separator()),
+                just(Token::Rparen).delimited_by(separator(), separator()),
+            )
+            // Attempt to recover anything that looks like a block but contains errors
+            .recover_with(via_parser(nested_delimiters(
+                Token::Lparen,
+                Token::Rparen,
+                [(Token::Lbracket, Token::Rbracket)],
+                |span| (Expression::ParserError, span),
+            )));
         // The recursive expression Part
         recursive(|expression| {
             let inline_expression = {
                 // Atom which is the smallest expression.
                 let atom = choice((ident.map(Expression::Ident), number, bool, string, span))
-                    .then_ignore(just(Token::QuestionMark).or_not())
-                    .map_with_span(|expr, span: SimpleSpan| {
-                        (Expression::Value(Value::Option(Box::new(expr))), span)
-                    })
+                    .map_with_span(|expr, span: SimpleSpan| (expr, span))
                     // Atoms can also just be normal expressions, but surrounded with parentheses
                     .or(expression
                         .clone()
@@ -58,7 +69,8 @@ pub mod expressions {
                         [(Token::Lbracket, Token::Rbracket)],
                         |span| (Expression::ParserError, span),
                     )))
-                    .labelled("Atom");
+                    .labelled("Atom")
+                    .as_context();
 
                 // A list of expressions
                 let items = expression
@@ -79,7 +91,8 @@ pub mod expressions {
                         [(Token::Lbracket, Token::Rbracket)],
                         |span| vec![(Expression::ParserError, span)],
                     )))
-                    .labelled("parenthesized expression");
+                    .labelled("list of expressions")
+                    .as_context();
 
                 // Function calls have very high precedence so we prioritise them
                 let call = atom
@@ -94,9 +107,8 @@ pub mod expressions {
                         },
                     )
                     .labelled("Function call");
-
+                // TODO: Fix this garbage with atom and call...
                 let method_call = choice((atom, call.clone()))
-                    .clone()
                     .then_ignore(separator())
                     .then_ignore(just(Token::Period))
                     .then(ident)
@@ -178,21 +190,19 @@ pub mod expressions {
                 }; // Comparison ops (equal, not-equal) have equal precedence
                 comp.labelled("expression").as_context()
             };
-
-            // Blocks are expressions but delimited with parentheses
-            let block = block
-                .clone()
-                .delimited_by(separator(), separator())
-                .delimited_by(just(Token::Lparen), just(Token::Rparen))
-                // Attempt to recover anything that looks like a block but contains errors
-                .recover_with(via_parser(nested_delimiters(
-                    Token::Lparen,
-                    Token::Rparen,
-                    [(Token::Lbracket, Token::Rbracket)],
-                    |span| (Expression::ParserError, span),
-                )));
-
-            choice((inline_expression.clone(), block.labelled("block")))
+            let if_else = just(Token::If)
+                .ignore_then(block.clone())
+                .then(block.clone())
+                .then(just(Token::Else).ignore_then(block.clone()).or_not())
+                .map(|((cond, then_branch), else_branch)| {
+                    Expression::IfElse(
+                        Box::new(cond),
+                        Box::new(then_branch),
+                        else_branch.map_or_else(|| None, |else_| Some(Box::new(else_))),
+                    )
+                })
+                .labelled("if else");
+            choice((inline_expression.clone(), block.clone()))
         })
     }
 }

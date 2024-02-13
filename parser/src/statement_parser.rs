@@ -26,7 +26,8 @@ where
             let break_ = just(Token::Break)
                 .ignore_then(expr.clone())
                 .map(|expr| -> Statement { Statement::Break(Box::new(expr)) })
-                .labelled("Break");
+                .labelled("Break")
+                .as_context();
 
             // return => "return" expr
             let return_ = just(Token::Return)
@@ -42,13 +43,15 @@ where
                         |exp| Statement::Return(Box::new(exp)),
                     )
                 })
-                .labelled("Return");
+                .labelled("Return")
+                .as_context();
 
             // loop => "loop" expr block
             let loop_ = just(Token::Loop)
                 .ignore_then(expr.clone())
                 .map(|expr| -> Statement { Statement::Loop(expr) })
-                .labelled("loop statement");
+                .labelled("loop statement")
+                .as_context();
 
             // assignment => ident "=" expr
             let assignment = ident_parser()
@@ -57,7 +60,8 @@ where
                 .map_with_span(|(name, val), span| -> (Statement, SimpleSpan) {
                     (Statement::VariableDeclaration(name, Box::new(val)), span)
                 })
-                .labelled("assignment");
+                .labelled("assignment")
+                .as_context();
             // if => "if" expr "then" expr ("else" expr)?
             let if_ = just(Token::If)
                 .ignore_then(expr.clone())
@@ -81,7 +85,8 @@ where
                         span,
                     ))
                 })
-                .labelled("if statement");
+                .labelled("if statement")
+                .as_context();
             let if_else =
                 if_.clone()
                     .separated_by(just(Token::Else))

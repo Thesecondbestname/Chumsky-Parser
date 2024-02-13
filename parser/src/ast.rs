@@ -11,14 +11,15 @@ pub enum Instruction {
 pub enum BlockElement {
     Item(Spanned<Item>),
     Statement(Spanned<Statement>),
+    /// An expression cast to a statement with a :3
     SilentExpression(Spanned<Expression>),
 }
 
 #[derive(Debug, Clone)]
 pub struct Block(pub Vec<Spanned<BlockElement>>);
 
-#[derive(Debug, Clone)]
-pub struct DEPRECATED_Block(pub Vec<Spanned<Statement>>);
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct Path(pub Vec<Spanned<String>>);
 
 #[derive(Debug, Clone)]
 pub enum Item {
@@ -99,23 +100,22 @@ pub enum Expression {
     ParserError,
     Ident(String),
     List(Vec<Expression>),
-    Then(Box<Spanned<Self>>, Box<Spanned<Self>>),
     FunctionCall(Box<Spanned<Self>>, Vec<Spanned<Self>>),
     MethodCall(Box<Spanned<Self>>, String, Vec<Spanned<Self>>),
     // FAT TODO: FIX THIS BLOCKS ARE STATEMENTS AND EXPRESSIONS AT THE SAME TIME
     Block(Block),
-    DEPRECATED_BLOCK(Vec<Spanned<Statement>>),
     Value(Value),
     IfElse(
         Box<Spanned<Expression>>,
         Box<Spanned<Expression>>,
-        Box<Option<Spanned<Expression>>>,
+        Option<Box<Spanned<Expression>>>,
     ),
     UnaryBool(Box<Spanned<Self>>),
     UnaryMath(Box<Spanned<Self>>),
     MathOp(Box<Spanned<Self>>, MathOp, Box<Spanned<Self>>),
     Comparison(Box<Spanned<Self>>, ComparisonOp, Box<Spanned<Self>>),
     Binary(Box<Spanned<Expression>>, BinaryOp, Box<Spanned<Expression>>),
+    Unit,
 }
 
 #[derive(Clone, Debug)]
@@ -164,7 +164,7 @@ pub enum BinaryOp {
 }
 /// All the type primitives. These do not contain values, rather they denote that a given type
 /// belongs here.
-#[derive(Debug, Clone, Eq, PartialEq, PartialOrd, Ord)]
+#[derive(Debug, Clone, Eq, PartialEq)]
 pub enum Type {
     Int,
     Bool,
@@ -174,7 +174,7 @@ pub enum Type {
     Tuple(Vec<Type>),
     Char,
     Span,
-    Custom(String),
+    Path(Spanned<Path>),
 }
 #[derive(Debug, Clone)]
 pub enum Number {

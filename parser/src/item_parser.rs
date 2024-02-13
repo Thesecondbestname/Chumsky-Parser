@@ -70,7 +70,7 @@ pub fn struct_parser<'tokens, 'src: 'tokens>() -> impl Parser<
 > + Clone {
     let struct_field = ident_parser()
         .clone()
-        .then_ignore(just(Token::DoubleColon).labelled("::"))
+        .then_ignore(just(Token::PathSeperator).labelled("::"))
         .then(type_parser())
         .map_with_span(|(name, r#type), span| (StructField { name, r#type }, span))
         .labelled("struct declaration field");

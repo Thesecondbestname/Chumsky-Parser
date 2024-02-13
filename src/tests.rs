@@ -6,7 +6,7 @@ fn test_basic_lex() {
     let lex = r#"use io_print
     x = xöla
     y = 69 / (56 - 0.45)
-    print(Works?):3
+    print(Works):3
     enum Foo:
         baz
     ;
@@ -44,7 +44,7 @@ fn test_loops() {
     let input = "loop (
         a = 5
         return 3
-        continue a
+        continue
     \n)";
     test(input);
 }
@@ -56,7 +56,7 @@ fn test_return() {
 #[test]
 fn test_continue() {
     let input = "loop (
-        continue 3
+        continue
     )";
     test(input);
 }
@@ -91,7 +91,7 @@ fn test_seperator() {
 fn test_angery_case() {
     let input = r#"x = 50.sqrt
         y = ksjdfo
-        print(Works?):3"#;
+        print(Works):3"#;
     test(input);
 }
 #[test]
@@ -117,7 +117,10 @@ fn test_string() {
 
 #[test]
 fn test_multiple_expressions() {
-    let input = "(x = 4+5\n x= 32):3";
+    let input = "(
+        x = 4+5
+        x = 32
+    ):3";
     test(input);
 }
 #[test]
