@@ -36,7 +36,7 @@ fn test_structs() {
 }
 #[test]
 fn test_method_calls() {
-    let input = "(500.sqrt):3";
+    let input = "500.sqrt:3";
     test(input);
 }
 #[test]
@@ -55,9 +55,7 @@ fn test_return() {
 }
 #[test]
 fn test_continue() {
-    let input = "loop (
-        continue
-    )";
+    let input = "loop (continue)";
     test(input);
 }
 #[test]
@@ -118,7 +116,7 @@ fn test_string() {
 #[test]
 fn test_multiple_expressions() {
     let input = "(
-        x = 4+5
+    x = 4+5
         x = 32
     ):3";
     test(input);
@@ -171,48 +169,7 @@ fn test(input: &str) {
         },
     );
     for error in parse.clone().into_errors() {
-        let span = error.span();
-        let expected = error
-            .expected()
-            .map(|a| format!("{}, ", a))
-            .collect::<Vec<_>>()
-            .concat();
-        let found = error.found();
-        let context = error.contexts().collect::<Vec<_>>();
-        let _reason = error.reason();
-        Report::build(ReportKind::Error, (), span.start)
-            .with_message(format!("error while parsing: {context:?}"))
-            .with_label(
-                Label::new(span.start..span.end)
-                    .with_message(format!("but found {:?}", found.unwrap()))
-                    .with_color(Color::Red),
-            )
-            .with_note(format!("Expected {expected:?}"))
-            .finish()
-            .eprint(Source::from(input.clone()))
-            .expect("Whooo unable to create error...");
+        crate::print_error(error, &input)
     }
     assert!(!parse.has_errors());
-}
-fn print_error(error: OutputError, input: &str) {
-    let span = error.span();
-    let expected = error
-        .expected()
-        .map(|a| format!("{:#?} ", a))
-        .collect::<Vec<_>>()
-        .concat();
-    let found = error.found();
-    let context = error.contexts().collect::<Vec<_>>();
-    let _reason = error.reason();
-    Report::build(ReportKind::Error, (), span.start)
-        .with_message(format!("error while parsing: {context:?}"))
-        .with_label(
-            Label::new(span.start..span.end)
-                .with_message(format!("but found {:#?}", found.unwrap()))
-                .with_color(Color::Red),
-        )
-        .with_note(format!("Expected {expected:#?}"))
-        .finish()
-        .eprint(Source::from(input.clone()))
-        .expect("Whooo unable to create error...");
 }
