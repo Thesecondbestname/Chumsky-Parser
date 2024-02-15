@@ -134,6 +134,7 @@ pub enum Token {
     Type(ast::Type),
     #[token("while")]
     While,
+    Nothing,
 }
 
 fn type_matcher(lex: &Lexer<Token>) -> ast::Type {
@@ -252,5 +253,6 @@ impl_display!(Token, |s: &Token| {
         Token::True => "true".to_string(),
         Token::Type(type_) => format!("{type_:?}"),
         Token::While => "while".to_string(),
+        Token::Nothing => "Noting".to_string(),
     }
 });

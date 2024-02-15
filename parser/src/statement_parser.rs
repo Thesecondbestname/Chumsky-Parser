@@ -57,8 +57,11 @@ where
             let assignment = ident_parser()
                 .then_ignore(just(Token::Assign))
                 .then(expr.clone())
-                .map_with_span(|(name, val), span| -> (Statement, SimpleSpan) {
-                    (Statement::VariableDeclaration(name, Box::new(val)), span)
+                .map_with(|(name, val), ctx| -> (Statement, SimpleSpan) {
+                    (
+                        Statement::VariableDeclaration(name, Box::new(val)),
+                        ctx.span(),
+                    )
                 })
                 .labelled("assignment")
                 .as_context();
@@ -76,13 +79,13 @@ where
                 )))
                 .then(expr.clone())
                 .clone()
-                .map_with_span(|(condition, code_block), span| -> Statement {
+                .map_with(|(condition, code_block), ctx| -> Statement {
                     Statement::If((
                         If {
                             condition: Box::new(condition),
                             code_block,
                         },
-                        span,
+                        ctx.span(),
                     ))
                 })
                 .labelled("if statement")
@@ -101,11 +104,11 @@ where
                 }).collect::<Vec<_>>())
                     });
             choice((
-                loop_.map_with_span(|stmnt: Statement, span: SimpleSpan| (stmnt, span)),
-                continue_.map_with_span(|stmnt: Statement, span: SimpleSpan| (stmnt, span)),
-                break_.map_with_span(|stmnt: Statement, span: SimpleSpan| (stmnt, span)),
-                return_.map_with_span(|stmnt: Statement, span: SimpleSpan| (stmnt, span)),
-                if_.map_with_span(|stmnt: Statement, span: SimpleSpan| (stmnt, span)),
+                loop_.map_with(|stmnt: Statement, ctx| (stmnt, ctx.span())),
+                continue_.map_with(|stmnt: Statement, ctx| (stmnt, ctx.span())),
+                break_.map_with(|stmnt: Statement, ctx| (stmnt, ctx.span())),
+                return_.map_with(|stmnt: Statement, ctx| (stmnt, ctx.span())),
+                if_.map_with(|stmnt: Statement, ctx| (stmnt, ctx.span())),
                 assignment,
                 expr.then_ignore(just(Token::StmtCast))
                     .map(|(expr, span)| (Statement::Expression(expr), span)),
@@ -113,16 +116,3 @@ where
         };
     statement
 }
-
-// block => ( [statement separator]* )
-// let block = statement
-//     .clone()
-//     .map(|stmt: Spanned<Statement>| (stmt.0.to_instruction(), stmt.1))
-//     .separated_by(separator().ignored())
-//     .collect()
-//     .delimited_by(
-//         just(Token::Lparen).padded_by(separator()),
-//         just(Token::Rparen).padded_by(separator()),
-//     )
-//     .map_with_span(|block, span| (CodeBlock(block), span));
-// block_parser = Some(block.clone());

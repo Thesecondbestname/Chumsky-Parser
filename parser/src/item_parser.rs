@@ -33,23 +33,22 @@ where
     T: Parser<'tokens, ParserInput<'tokens, 'src>, Spanned<Expression>, Error<'tokens>> + Clone, // Statement
 {
     let block = block.delimited_by(just(Token::Lparen), just(Token::Rparen));
+    let arguments = ident_parser()
+        .map_with(|name, ctx| -> (String, SimpleSpan) { (name, ctx.span()) })
+        .then_ignore(just(Token::Hashtag))
+        .then(type_parser())
+        .map_with(|(name, b), ctx| ((b, ctx.span()), name))
+        .separated_by(just(Token::Comma))
+        .collect::<Vec<_>>()
+        .labelled("arguments");
     // fn = type name ":" (ident "#" type ,)* block
     let function = type_parser()
         .labelled("return type")
-        .map_with_span(|r#type, span| -> (Type, SimpleSpan) { (r#type, span) })
+        .map_with(|r#type, ctx| -> (Type, SimpleSpan) { (r#type, ctx.span()) })
         .then(ident_parser())
-        .map_with_span(|(r#type, name), span| (r#type, (name, span)))
+        .map_with(|(r#type, name), ctx| (r#type, (name, ctx.span())))
         .then_ignore(just(Token::Colon))
-        .then(
-            ident_parser()
-                .map_with_span(|name, span| -> (String, SimpleSpan) { (name, span) })
-                .then_ignore(just(Token::Hashtag))
-                .then(type_parser())
-                .map_with_span(|(name, b), span| ((b, span), name))
-                .separated_by(just(Token::Comma))
-                .collect::<Vec<_>>()
-                .labelled("arguments"),
-        )
+        .then(arguments)
         .then(block.clone()) // TODO again using Block parser to parse a block
         .map(
             |(((return_type, name), arguments), block)| FunctionDeclaration {
@@ -72,7 +71,7 @@ pub fn struct_parser<'tokens, 'src: 'tokens>() -> impl Parser<
         .clone()
         .then_ignore(just(Token::PathSeperator).labelled("::"))
         .then(type_parser())
-        .map_with_span(|(name, r#type), span| (StructField { name, r#type }, span))
+        .map_with(|(name, r#type), ctx| (StructField { name, r#type }, ctx.span()))
         .labelled("struct declaration field");
 
     let r#struct = just(Token::Struct)
@@ -86,13 +85,13 @@ pub fn struct_parser<'tokens, 'src: 'tokens>() -> impl Parser<
         )
         .then_ignore(separator())
         .then_ignore(just(Token::Semicolon))
-        .map_with_span(|(struct_name, fields), span| {
+        .map_with(|(struct_name, fields), ctx| {
             (
                 StructDeclaration {
                     name: struct_name,
                     fields,
                 },
-                span,
+                ctx.span(),
             )
         })
         .labelled("struct declaration");
@@ -110,7 +109,7 @@ pub fn enum_parser<'tokens, 'src: 'tokens>(
                 .or_not(),
         )
         .padded_by(separator())
-        .map_with_span(|(name, r#type), span| (EnumVariantDeclaration { name, r#type }, span))
+        .map_with(|(name, r#type), ctx| (EnumVariantDeclaration { name, r#type }, ctx.span()))
         .labelled("Enum field");
 
     let r#enum = just(Token::Enum)
@@ -126,7 +125,7 @@ pub fn enum_parser<'tokens, 'src: 'tokens>(
                 .collect::<Vec<(EnumVariantDeclaration, SimpleSpan)>>(),
         )
         .then_ignore(just(Token::Semicolon))
-        .map_with_span(|(name, variants), span| (EnumDeclaration { name, variants }, span))
+        .map_with(|(name, variants), ctx| (EnumDeclaration { name, variants }, ctx.span()))
         .labelled("Enum declaration");
     r#enum
 }
@@ -139,12 +138,12 @@ pub fn import_parser<'tokens, 'src: 'tokens>(
             ident
                 .clone()
                 .then_ignore(just(Token::PathSeperator))
-                .map_with_span(|module, span| (module, span))
+                .map_with(|module, ctx| (module, ctx.span()))
                 .repeated()
                 .collect(),
         )
         .then(ident.clone())
-        .map_with_span(|(module, name), span| ((Import(module, (name, span))), span))
+        .map_with(|(module, name), ctx| ((Import(module, (name, ctx.span()))), ctx.span()))
         .labelled("Import");
     import
 }

@@ -3,6 +3,7 @@ pub mod expressions {
     use crate::ast::{BinaryOp, ComparisonOp, Expression, MathOp, Number, Value};
     use crate::convenience_parsers::separator;
     use crate::convenience_types::{Error, ParserInput, Spanned};
+    use crate::util_parsers::extra_delimited;
     use crate::Token;
     use chumsky::prelude::*;
     pub fn expression_parser<'tokens, 'src: 'tokens, T>(
@@ -31,38 +32,17 @@ pub mod expressions {
             .labelled("String");
         let span = select! {Token::Span(s) => Expression::Value(Value::Span(s.start, s.end))};
 
-        // Blocks are expressions but delimited with parentheses
-        let block = block
-            .clone()
-            .delimited_by(
-                just(Token::Lparen).delimited_by(separator(), separator()),
-                just(Token::Rparen).delimited_by(separator(), separator()),
-            )
-            // Attempt to recover anything that looks like a block but contains errors
-            .recover_with(via_parser(nested_delimiters(
-                Token::Lparen,
-                Token::Rparen,
-                [(Token::Lbracket, Token::Rbracket)],
-                |span| (Expression::ParserError, span),
-            )));
         // The recursive expression Part
         recursive(|expression| {
             let inline_expression = {
                 // Atom which is the smallest expression.
                 let atom = choice((ident.map(Expression::Ident), number, bool, string, span))
-                    .map_with_span(|expr, span: SimpleSpan| (expr, span))
+                    .map_with(|expr, span| (expr, span.span()))
                     // Atoms can also just be normal expressions, but surrounded with parentheses
-                    .or(expression
-                        .clone()
-                        .delimited_by(just(Token::Lparen), just(Token::Rparen)))
+                    .or(extra_delimited::<_, Spanned<Expression>>(
+                        expression.clone(),
+                    ))
                     // Attempt to recover anything that looks like a parenthesised expression but contains errors
-                    .recover_with(via_parser(nested_delimiters(
-                        Token::Lparen,
-                        Token::Rparen,
-                        [(Token::Lbracket, Token::Rbracket)],
-                        |span| (Expression::ParserError, span),
-                    )))
-                    // Attempt to recover anything that looks like a list but contains errors
                     .recover_with(via_parser(nested_delimiters(
                         Token::Lparen,
                         Token::Rparen,
@@ -71,7 +51,6 @@ pub mod expressions {
                     )))
                     .labelled("Atom")
                     .as_context();
-
                 // A list of expressions
                 let items = expression
                     .clone()
@@ -99,7 +78,7 @@ pub mod expressions {
                     .clone()
                     .foldl(
                         list.clone()
-                            .map_with_span(|expr, span: SimpleSpan| (expr, span))
+                            .map_with(|expr, span| (expr, span.span()))
                             .repeated(),
                         |func, args| {
                             let span = SimpleSpan::new(func.1.start, args.1.end);
@@ -113,14 +92,14 @@ pub mod expressions {
                     .then_ignore(just(Token::Period))
                     .then(ident)
                     .then(list.clone().or_not())
-                    .map_with_span(|((called_on, name), args), span| {
+                    .map_with(|((called_on, name), args), ctx| {
                         (
                             Expression::MethodCall(
                                 Box::new(called_on),
                                 name,
                                 args.map_or_else(std::vec::Vec::new, |arguments| arguments),
                             ),
-                            span,
+                            ctx.span(),
                         )
                     })
                     .labelled("method call");
@@ -188,8 +167,9 @@ pub mod expressions {
                         },
                     )
                 }; // Comparison ops (equal, not-equal) have equal precedence
-                comp.labelled("expression").as_context()
+                comp.labelled("expression").as_context().boxed()
             };
+
             let if_else = just(Token::If)
                 .ignore_then(block.clone())
                 .then(block.clone())
@@ -206,3 +186,70 @@ pub mod expressions {
         })
     }
 }
+// mod pratt {
+//     let basic = {
+//             use chumsky::pratt::{infix, left, postfix, prefix, right};
+
+//             let binary = |associativity, token, op| {
+//                 infix(associativity, just(token), move |l, r| {
+//                     Expr::Binary(Box::new(l), op, Box::new(r))
+//                 })
+//             };
+
+//             // https://doc.rust-lang.org/stable/reference/expressions.html#expression-precedence
+//             atom.clone().pratt((
+//                 // field ::= atom "." ident
+//                 postfix(
+//                     8,
+//                     just(Token::Dot).ignore_then(ident_parser().map(String::from)),
+//                     |l, field| Expr::FieldAccess(Box::new(l), field),
+//                 ),
+//                 // subscript ::= field "." "[" expr "]"
+//                 postfix(
+//                     7,
+//                     just(Token::Dot).ignore_then(
+//                         expr.clone()
+//                             .delimited_by(just(Token::BracketOpen), just(Token::BracketClose)),
+//                     ),
+//                     |l, index| Expr::Subscript(Box::new(l), Box::new(index)),
+//                 ),
+//                 // call ::= field "(" (expr ("," expr)*)? ")"
+//                 postfix(
+//                     7,
+//                     expr.clone()
+//                         .separated_by(just(Token::Comma))
+//                         .collect::<Vec<Expr>>()
+//                         .delimited_by(just(Token::ParenOpen), just(Token::ParenClose)),
+//                     |l, args| Expr::Call(Box::new(l), args),
+//                 ),
+//                 // unary ::= ("-" | "not") call
+//                 prefix(6, just(Token::Not), |r| {
+//                     Expr::Unary(UnaryOp::Not, Box::new(r))
+//                 }),
+//                 prefix(6, just(Token::Minus), |r| {
+//                     Expr::Unary(UnaryOp::Neg, Box::new(r))
+//                 }),
+//                 // mul_div ::= unary ("*" | "/") unary
+//                 binary(left(5), Token::Star, BinaryOp::Mul),
+//                 binary(left(5), Token::Slash, BinaryOp::Div),
+//                 // add_sub ::= mul_div ("+" | "-") mul_div
+//                 binary(left(4), Token::Plus, BinaryOp::Add),
+//                 binary(left(4), Token::Minus, BinaryOp::Sub),
+//                 // TODO Require parentheses
+//                 // compare ::= add_sub ("==" | "!=" | "<" | "<=" | ">" | ">=") add_sub
+//                 binary(left(3), Token::Eq, BinaryOp::Eq),
+//                 binary(left(3), Token::NotEq, BinaryOp::NotEq),
+//                 binary(left(3), Token::LessThan, BinaryOp::LessThan),
+//                 binary(left(3), Token::LessThanEq, BinaryOp::LessThanEq),
+//                 binary(left(3), Token::GreaterThan, BinaryOp::GreaterThan),
+//                 binary(left(3), Token::GreaterThanEq, BinaryOp::GreaterThanEq),
+//                 // assign ::= basic "=" basic
+//                 binary(right(1), Token::Assign, BinaryOp::Assign),
+//                 // break ::= "break" basic
+//                 prefix(0, just(Token::Break), |r| Expr::Break(Box::new(r))),
+//                 // return_value ::= "return" basic
+//                 prefix(0, just(Token::Return), |r| Expr::Return(Box::new(r))),
+//             ))
+//         };
+
+// }

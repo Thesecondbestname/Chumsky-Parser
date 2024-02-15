@@ -10,8 +10,8 @@ logos = "0.13.0"
 
 [dependencies.chumsky]
 git = "https://github.com/zesterer/chumsky"
-rev = "4145fcf5bf1323d1accae5d7ba50ff9b799dbe43"
-features = ["label","memoization"]
+rev = "e045b140497bd07fecbe13ae1ad22aa252678de3"
+features = ["label", "pratt"]
 
 [lints.clippy]
 nursery = "deny"

@@ -15,15 +15,23 @@ fn block_parser<'tokens, 'src: 'tokens>() -> impl Parser<
 > + Clone {
     // import, function, statement, scope
     let scope = recursive(|block| {
+        let delimited_block = extra_delimited::<_, Spanned<Expression>>(block.clone())
+            .recover_with(via_parser(nested_delimiters(
+                Token::Lparen,
+                Token::Rparen,
+                [(Token::Lbracket, Token::Rbracket)],
+                |span| (Expression::ParserError, span),
+            )));
+
         let block_element = choice((
-            item_parser(block.clone()).map_with_span(|item, span| BlockElement::Item((item, span))),
-            statement_parser(expression_parser(block)).map(BlockElement::Statement),
+            item_parser(block.clone()).map_with(|item, ctx| BlockElement::Item((item, ctx.span()))),
+            statement_parser(expression_parser(delimited_block)).map(BlockElement::Statement),
         ));
         let program = block_element
-            .map_with_span(|item, span| (item, span))
+            .map_with(|item, ctx| (item, ctx.span()))
             .separated_by(just(Token::Newline))
             .collect::<Vec<_>>()
-            .map_with_span(|items, span| (Expression::Block(Block(items)), span));
+            .map_with(|items, ctx| (Expression::Block(Block(items)), ctx.span()));
         return program;
     });
     return scope;

@@ -28,11 +28,11 @@ pub fn type_parser<'tokens, 'src: 'tokens>() -> impl Parser<
     let int = select! { Token::Integer(v) => v }.labelled("Whole AAh integer");
     recursive(|r#type| {
         let path = ident_parser()
-            .map_with_span(|a, b| (a, b))
+            .map_with(|a, ctx| (a, ctx.span()))
             .separated_by(just(Token::PathSeperator))
             .collect()
             .map(ast::Path)
-            .map_with_span(|a, b| Type::Path((a, b)));
+            .map_with(|a, ctx| Type::Path((a, ctx.span())));
         let primitives = select! {Token::Type(x) => x,}.labelled("primitive type");
         let tuple = r#type
             .clone()
@@ -63,16 +63,16 @@ pub fn parameter_parser<'tokens, 'src: 'tokens>() -> impl Parser<
         .then(ident_parser())
 }
 
-pub fn extra_delimited<'tokens, 'src: 'tokens, T>(
+pub fn extra_delimited<'tokens, 'src: 'tokens, T, U>(
     idk: T,
 ) -> impl Parser<
     'tokens,
     ParserInput<'tokens, 'src>, // Input
-    T,                          // Output
+    U,                          // Output
     Error<'tokens>,             // Error Type
 > + Clone
 where
-    T: Parser<'tokens, ParserInput<'tokens, 'src>, T, Error<'tokens>> + Clone, // Statement
+    T: Parser<'tokens, ParserInput<'tokens, 'src>, U, Error<'tokens>> + Clone, // Statement
 {
     idk.delimited_by(
         just(Token::Lparen).delimited_by(separator(), separator()),
