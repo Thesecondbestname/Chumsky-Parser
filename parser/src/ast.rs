@@ -99,22 +99,22 @@ pub struct If {
 pub enum Expression {
     ParserError,
     Ident(String),
-    List(Vec<Expression>),
+    List(Vec<Self>),
     FunctionCall(Box<Spanned<Self>>, Vec<Spanned<Self>>),
     MethodCall(Box<Spanned<Self>>, String, Vec<Spanned<Self>>),
-    // FAT TODO: FIX THIS BLOCKS ARE STATEMENTS AND EXPRESSIONS AT THE SAME TIME
     Block(Block),
     Value(Value),
+    FieldAccess(Box<Spanned<Self>>, String),
     IfElse(
-        Box<Spanned<Expression>>,
-        Box<Spanned<Expression>>,
-        Option<Box<Spanned<Expression>>>,
+        Box<Spanned<Self>>,
+        Box<Spanned<Self>>,
+        Option<Box<Spanned<Self>>>,
     ),
     UnaryBool(Box<Spanned<Self>>),
     UnaryMath(Box<Spanned<Self>>),
     MathOp(Box<Spanned<Self>>, MathOp, Box<Spanned<Self>>),
     Comparison(Box<Spanned<Self>>, ComparisonOp, Box<Spanned<Self>>),
-    Binary(Box<Spanned<Expression>>, BinaryOp, Box<Spanned<Expression>>),
+    Binary(Box<Spanned<Self>>, BinaryOp, Box<Spanned<Self>>),
     Unit,
 }
 
@@ -276,7 +276,7 @@ macro_rules! impl_display {
 macro_rules! impl_to_Instruction {
     ($name: ident, $closure :expr) => {
         impl<'Inp> ToInstruction<'Inp> for $name<'Inp> {
-            fn to_Instruction(&self) -> Instruction<'Inp> {
+            fn into_instruction(self) -> Instruction<'Inp> {
                 $closure(self.clone())
             }
         }
@@ -286,7 +286,7 @@ macro_rules! impl_to_Instruction {
 macro_rules! impl_to_Instruction_nolife {
     ($name: ident, $closure :expr) => {
         impl ToInstruction for $name {
-            fn to_Instruction(&self) -> Instruction {
+            fn into_instruction(self) -> Instruction {
                 $closure(self.clone())
             }
         }
@@ -294,9 +294,9 @@ macro_rules! impl_to_Instruction_nolife {
 }
 /// Trait that turns something arbitrary into an Expression.
 pub trait ToInstruction {
-    fn to_Instruction(&self) -> Instruction;
+    fn into_instruction(self) -> Instruction;
 }
 pub fn i32_to_f32(num1: i32, num2: i32) -> f64 {
-    let result = format!("{}.{}", num1, num2);
+    let result = format!("{num1}.{num2}");
     result.parse::<f64>().unwrap()
 }

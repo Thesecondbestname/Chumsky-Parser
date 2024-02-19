@@ -87,7 +87,7 @@ pub mod expressions {
                     )
                     .labelled("Function call");
                 // TODO: Fix this garbage with atom and call...
-                let method_call = choice((atom, call.clone()))
+                let method_call = choice((atom.clone(), call.clone()))
                     .then_ignore(separator())
                     .then_ignore(just(Token::Period))
                     .then(ident)
@@ -104,6 +104,124 @@ pub mod expressions {
                     })
                     .labelled("method call");
 
+                let basic = {
+                    use chumsky::pratt::{infix, left, postfix, prefix, right};
+
+                    let binary_math = |associativity, token, op| {
+                        infix::<_, _, MathOp, Spanned<Expression>>(
+                            associativity,
+                            just::<Token, ParserInput<'tokens, 'src>, Error<'tokens>>(token),
+                            move |l: Spanned<Expression>,
+                                  r: Spanned<Expression>|
+                                  -> Spanned<Expression> {
+                                (
+                                    Expression::MathOp(
+                                        Box::new(l.clone()),
+                                        op,
+                                        Box::new(r.clone()),
+                                    ),
+                                    (l.start()..r.end()).into(),
+                                )
+                            },
+                        )
+                    };
+                    let binary_comp = |associativity, token, op| {
+                        infix::<_, _, ComparisonOp, Spanned<Expression>>(
+                            associativity,
+                            just::<Token, ParserInput<'tokens, 'src>, Error<'tokens>>(token),
+                            move |l: Spanned<Expression>, r: Spanned<Expression>| {
+                                (
+                                    Expression::Comparison(
+                                        Box::new(l.clone()),
+                                        op,
+                                        Box::new(r.clone()),
+                                    ),
+                                    (l.start()..r.end()),
+                                )
+                            },
+                        )
+                    };
+                    let binary = |associativity, token: Token, op| {
+                        infix::<_, _, BinaryOp, Spanned<Expression>>(
+                            associativity,
+                            just::<Token, ParserInput<'tokens, 'src>, Error<'tokens>>(token),
+                            move |l, r| -> Expression {
+                                Expression::Binary(Box::new(l), op, Box::new(r))
+                            },
+                        )
+                    };
+                    // https://doc.rust-lang.org/stable/reference/expressions.html#expression-precedence
+                    atom.clone().pratt((
+                        // field ::= atom "." ident
+                        postfix::<_, _, Token, Spanned<Expression>>(
+                            8,
+                            just(Token::Period)
+                                .ignore_then(crate::util_parsers::ident_parser().map(String::from))
+                                .map_with(|field, ctx| (field, ctx.span())),
+                            |l: Spanned<Expression>, field: Spanned<String>| {
+                                (
+                                    Expression::FieldAccess(Box::new(l.clone()), field.0.clone()),
+                                    l.start()..field.end(),
+                                )
+                            },
+                        ),
+                        // call ::= field "(" (expr ("," expr)*)? ")"
+                        postfix::<_, _, Token, Spanned<Expression>>(
+                            7,
+                            expression
+                                .clone()
+                                .separated_by(just(Token::Comma))
+                                .collect::<Vec<Spanned<Expression>>>()
+                                .map_with(|args, ctx| (args, ctx.span()))
+                                .delimited_by(just(Token::Lparen), just(Token::Rparen)),
+                            |l: Spanned<Expression>, args: Spanned<Vec<Spanned<Expression>>>| {
+                                (
+                                    Expression::FunctionCall(Box::new(l.clone()), args.0.clone()),
+                                    l.start()..args.end(),
+                                )
+                            },
+                        ),
+                        // unary ::= ("-" | "not") call
+                        prefix::<_, _, Token, Spanned<Expression>>(
+                            6,
+                            just::<Token, ParserInput<'tokens, 'src>, Error<'tokens>>(Token::Bang)
+                                .map_with(|bang, ctx| (Token::Nothing, ctx.span())),
+                            |(bang, r): (Spanned<Token>, Spanned<Expression>)| {
+                                (
+                                    Expression::UnaryBool(Box::new(r.clone())),
+                                    bang.start()..r.end(),
+                                )
+                            },
+                        ),
+                        prefix::<_, _, Token, Spanned<Expression>>(
+                            6,
+                            just::<Token, ParserInput<'tokens, 'src>, Error<'tokens>>(Token::Minus),
+                            |r| Expression::UnaryMath(Box::new(r)),
+                        ),
+                        // mul_div ::= unary ("*" | "/") unary
+                        binary_math(left(5), Token::Mul, MathOp::Mul),
+                        binary_math(left(5), Token::Div, MathOp::Div),
+                        // add_sub ::= mul_div ("+" | "-") mul_div
+                        binary_math(left(4), Token::Plus, MathOp::Add),
+                        binary_math(left(4), Token::Minus, MathOp::Sub),
+                        // TODO Require parentheses
+                        // compare ::= add_sub ("==" | "!=" | "<" | "<=" | ">" | ">=") add_sub
+                        binary_comp(left(3), Token::Eq, ComparisonOp::Eq),
+                        binary_comp(left(3), Token::Neq, ComparisonOp::Neq),
+                        binary_comp(left(3), Token::Lt, ComparisonOp::Lt),
+                        binary_comp(left(3), Token::Lte, ComparisonOp::Lte),
+                        binary_comp(left(3), Token::Gt, ComparisonOp::Gt),
+                        binary_comp(left(3), Token::Gte, ComparisonOp::Gte),
+                        // additional comparisons
+                        binary(left(2), Token::And, BinaryOp::And),
+                        binary(left(2), Token::Or, BinaryOp::Or),
+                        binary(left(2), Token::Xor, BinaryOp::Xor),
+                        // // break ::= "break" basic
+                        // prefix(0, just(Token::Break), |r| Expression::Break(Box::new(r))),
+                        // // return_value ::= "return" basic
+                        // prefix(0, just(Token::Return), |r| Expression::Return(Box::new(r))),
+                    ))
+                };
                 // Product ops (multiply and divide) have equal precedence
                 let op = just(Token::Mul)
                     .to(MathOp::Mul)
@@ -120,9 +238,9 @@ pub mod expressions {
                     .labelled("product");
 
                 // Sum ops (add and subtract) have equal precedence
-                let op = just(Token::Add)
+                let op = just(Token::Plus)
                     .to(MathOp::Add)
-                    .or(just(Token::Sub).to(MathOp::Sub));
+                    .or(just(Token::Minus).to(MathOp::Sub));
                 let sum = product
                     .clone()
                     .foldl(op.then(product).repeated(), |a, (op, b)| {
@@ -187,69 +305,5 @@ pub mod expressions {
     }
 }
 // mod pratt {
-//     let basic = {
-//             use chumsky::pratt::{infix, left, postfix, prefix, right};
-
-//             let binary = |associativity, token, op| {
-//                 infix(associativity, just(token), move |l, r| {
-//                     Expr::Binary(Box::new(l), op, Box::new(r))
-//                 })
-//             };
-
-//             // https://doc.rust-lang.org/stable/reference/expressions.html#expression-precedence
-//             atom.clone().pratt((
-//                 // field ::= atom "." ident
-//                 postfix(
-//                     8,
-//                     just(Token::Dot).ignore_then(ident_parser().map(String::from)),
-//                     |l, field| Expr::FieldAccess(Box::new(l), field),
-//                 ),
-//                 // subscript ::= field "." "[" expr "]"
-//                 postfix(
-//                     7,
-//                     just(Token::Dot).ignore_then(
-//                         expr.clone()
-//                             .delimited_by(just(Token::BracketOpen), just(Token::BracketClose)),
-//                     ),
-//                     |l, index| Expr::Subscript(Box::new(l), Box::new(index)),
-//                 ),
-//                 // call ::= field "(" (expr ("," expr)*)? ")"
-//                 postfix(
-//                     7,
-//                     expr.clone()
-//                         .separated_by(just(Token::Comma))
-//                         .collect::<Vec<Expr>>()
-//                         .delimited_by(just(Token::ParenOpen), just(Token::ParenClose)),
-//                     |l, args| Expr::Call(Box::new(l), args),
-//                 ),
-//                 // unary ::= ("-" | "not") call
-//                 prefix(6, just(Token::Not), |r| {
-//                     Expr::Unary(UnaryOp::Not, Box::new(r))
-//                 }),
-//                 prefix(6, just(Token::Minus), |r| {
-//                     Expr::Unary(UnaryOp::Neg, Box::new(r))
-//                 }),
-//                 // mul_div ::= unary ("*" | "/") unary
-//                 binary(left(5), Token::Star, BinaryOp::Mul),
-//                 binary(left(5), Token::Slash, BinaryOp::Div),
-//                 // add_sub ::= mul_div ("+" | "-") mul_div
-//                 binary(left(4), Token::Plus, BinaryOp::Add),
-//                 binary(left(4), Token::Minus, BinaryOp::Sub),
-//                 // TODO Require parentheses
-//                 // compare ::= add_sub ("==" | "!=" | "<" | "<=" | ">" | ">=") add_sub
-//                 binary(left(3), Token::Eq, BinaryOp::Eq),
-//                 binary(left(3), Token::NotEq, BinaryOp::NotEq),
-//                 binary(left(3), Token::LessThan, BinaryOp::LessThan),
-//                 binary(left(3), Token::LessThanEq, BinaryOp::LessThanEq),
-//                 binary(left(3), Token::GreaterThan, BinaryOp::GreaterThan),
-//                 binary(left(3), Token::GreaterThanEq, BinaryOp::GreaterThanEq),
-//                 // assign ::= basic "=" basic
-//                 binary(right(1), Token::Assign, BinaryOp::Assign),
-//                 // break ::= "break" basic
-//                 prefix(0, just(Token::Break), |r| Expr::Break(Box::new(r))),
-//                 // return_value ::= "return" basic
-//                 prefix(0, just(Token::Return), |r| Expr::Return(Box::new(r))),
-//             ))
-//         };
 
 // }

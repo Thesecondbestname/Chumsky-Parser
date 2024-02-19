@@ -58,7 +58,7 @@ fn print_error(error: parser::OutputError, input: &str) {
             Label::new(span.start..span.end)
                 .with_message(format!(
                     "but found {:#?}",
-                    found.unwrap_or(&parser::Token::Add)
+                    found.unwrap_or(&parser::Token::Plus)
                 ))
                 .with_color(Color::Red),
         )

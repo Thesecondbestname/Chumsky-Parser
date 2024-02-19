@@ -31,7 +31,7 @@ impl LexResult {
 #[logos(skip r"[ \t\f]+|(?://[^\r\n]*|/\*[\s\S]*\*/)")]
 pub enum Token {
     #[token("+")]
-    Add,
+    Plus,
     #[token("\n")]
     Newline,
     #[token("=")]
@@ -69,8 +69,10 @@ pub enum Token {
     Eq,
     #[token("false")]
     False,
-    #[token("<=")]
+    #[token("<")]
     Gt,
+    #[token("<=")]
+    Gte,
     #[regex(r"(\d+)\.\.(\d+)", |lex| parse_span(lex.slice().to_string()))]
     Span(Span),
     #[regex("[a-zA-Z_öäü][a-zA-Z0-9_öäü]*", |lex| lex.slice().to_string())]
@@ -92,7 +94,10 @@ pub enum Token {
     /// (
     #[token("(")]
     Lparen,
+    /// >=
     #[token(">=")]
+    Lte,
+    #[token(">")]
     Lt,
     /// %
     #[token("%")]
@@ -101,6 +106,7 @@ pub enum Token {
     QuestionMark,
     #[token("*")]
     Mul,
+    ///!=
     #[token("!=")]
     Neq,
     #[token("or")]
@@ -114,6 +120,7 @@ pub enum Token {
     Xor,
     #[token("_")]
     PathSeperator,
+    /// }
     #[token("}")]
     Rbracket,
     /// )
@@ -127,7 +134,7 @@ pub enum Token {
     #[token("struct")]
     Struct,
     #[token("-")]
-    Sub,
+    Minus,
     #[token("true")]
     True,
     #[regex("bool|float|int|char|string", type_matcher)]
@@ -205,7 +212,7 @@ fn parse_escaped_string(inp: String) -> String {
 }
 impl_display!(Token, |s: &Token| {
     match s {
-        Token::Add => "+".to_string(),
+        Token::Plus => "+".to_string(),
         Token::Newline => "Line break".to_string(),
         Token::Assign => "=".to_string(),
         Token::Bang => "!".to_string(),
@@ -249,10 +256,12 @@ impl_display!(Token, |s: &Token| {
         Token::Semicolon => ";".to_string(),
         Token::StmtCast => ":3".to_string(),
         Token::Struct => "struct".to_string(),
-        Token::Sub => "-".to_string(),
+        Token::Minus => "-".to_string(),
         Token::True => "true".to_string(),
         Token::Type(type_) => format!("{type_:?}"),
         Token::While => "while".to_string(),
         Token::Nothing => "Noting".to_string(),
+        Token::Lte => "<=".to_string(),
+        Token::Gte => ">=".to_string(),
     }
 });

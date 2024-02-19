@@ -3,16 +3,17 @@ type coordinate = (0..boardsize, 0..boardsize)
 use std:graphics:prelude:*
 
 
-
-struct SnekGame:
-    apple #coordinate,
-    snek #[boardsize, [boardsize, bool]],
-    direction #Direction,
-    head #coordinate ,
-    length #int,
+struct# SnekGame:
+    coordinate# apple,
+    [boardsize, [boardsize, bool]]# snek 
+    Direction# direction 
+    coordinate#head,
+    int# length 
      
     impl:
-        #update: self, (
+        #update: 
+            self, 
+        (
             if self.apple == self.head (
                 self.length += 1
             )
@@ -31,24 +32,24 @@ struct SnekGame:
 ;
     
 #main: (
-    window = Window:new
+    window = Window__new
         .title("snek")
         .fixed_size(500, 500)
     frame = Canvas/new
         .coordinates(boardsize, boardsize).seal()
     game_state = SnekGame: 
-            (std_rnd, std:rnd), 
+            (std_rnd, std__rnd), 
             [boardsize^2; bool],
-            Direction:default(),
+            Direction__default(),
             (10, 10)
         ;
     loop (
         events = window.update().events()
-        match events.0:
-            Some(Key:Left) = (game_state.direction = Direction:Left)
-            Some(Key:Right) = (game_state.direction = Direction:Right)
-            Some(Key:Up) = (game_state.direction = Direction:Up)
-            Some(Key:Down) = (game_state.direction = Direction:Down)
+        if events.0 matches:
+            Some(Key__Left) -> (game_state.direction = Direction__Left),
+            Some(Key__Right) -> (game_state.direction = Direction__Right),
+            Some(Key__Up) -> (game_state.direction = Direction__Up)
+            Some(Key__Down) -> (game_state.direction = Direction__Down)
             ;
         draw(game_state.update())
         
@@ -59,7 +60,7 @@ struct SnekGame:
     state #SnekGame,
     frame #Canvas,
     window #Window
-   (
+(
     for row, x_index in state.snek.enumerate() (
         for block, y_index in state.snek[index].enumerate() (
             if block (
@@ -71,7 +72,7 @@ struct SnekGame:
             )
         )
     )
-   window.draw(frame) 
+    window.draw(frame) 
 )
 
 enum Direction:
@@ -80,7 +81,7 @@ enum Direction:
     Left,
     Right,
     $default:
-        Self# default:(self:Right)
+        Self# default:(self__Right)
     ;
 ;
 
