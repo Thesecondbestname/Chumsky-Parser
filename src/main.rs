@@ -49,35 +49,29 @@ fn print_error(error: parser::OutputError, input: &str) {
         .map(|a| format!("{:#?} ", a))
         .collect::<Vec<_>>()
         .concat();
-    let found = error.found();
-    let context = error.contexts().collect::<Vec<_>>();
-    let _reason = error.reason();
+    let found = error.found().unwrap_or(&parser::Token::Nothing);
+    let context = error.contexts().last();
     Report::build(ReportKind::Error, (), span.start)
-        .with_message(format!("error while parsing: {context:?}"))
+        .with_message(format!(
+            "error while parsing {:?}",
+            context.expect("[INTERNAL ERROR]: FAILED TO HANDEL UNKNOWN CONTEXT")
+        ))
         .with_label(
             Label::new(span.start..span.end)
-                .with_message(format!(
-                    "but found {:#?}",
-                    found.unwrap_or(&parser::Token::Plus)
-                ))
+                .with_message(format!("found {found:?}",))
                 .with_color(Color::Red),
         )
-        .with_note(format!("Expected {expected:#?}"))
+        .with_note(format!("Expected one of {expected} but found {found}"))
         .finish()
-        .eprint(Source::from(input.clone()))
+        .eprint(Source::from(input))
         .expect("Whooo unable to create error...");
 }
 fn parse_from_string(inp: String) {
     let lex_result = lex_arrow_program(&inp);
-    println!("{}", "finished Lexing!\n".yellow());
     if !lex_result.is_ok() {
         for error in lex_result.errors() {
-            println!(
-                "{} in span {:?} with {:?}",
-                "ERROR: ".red(),
-                error.1,
-                error.2
-            );
+            // TODO: Convert into a ariadne diagnostic
+            println!("{} in span {:?} with {:?}", "ERROR: ", error.1, error.2);
         }
     }
     let parser_input = &range_into_span(lex_result.tokens());

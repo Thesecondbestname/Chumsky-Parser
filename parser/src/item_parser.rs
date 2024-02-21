@@ -15,10 +15,19 @@ where
     T: Parser<'tokens, ParserInput<'tokens, 'src>, Spanned<Expression>, Error<'tokens>> + Clone, // Statement
 {
     choice((
-        fn_parser(block).map(Item::Function),
-        enum_parser().map(Item::Enum),
-        struct_parser().map(Item::Struct),
-        import_parser().map(Item::Import),
+        fn_parser(block)
+            .map(Item::Function)
+            .labelled("Function")
+            .as_context(),
+        enum_parser().map(Item::Enum).labelled("Enum").as_context(),
+        struct_parser()
+            .map(Item::Struct)
+            .labelled("Struct")
+            .as_context(),
+        import_parser()
+            .map(Item::Import)
+            .labelled("Import")
+            .as_context(),
     ))
 }
 pub fn fn_parser<'tokens, 'src: 'tokens, T>(
@@ -57,8 +66,7 @@ where
                 arguments,
                 body: block,
             },
-        )
-        .labelled("function definition");
+        );
     return function;
 }
 pub fn struct_parser<'tokens, 'src: 'tokens>() -> impl Parser<
@@ -69,7 +77,7 @@ pub fn struct_parser<'tokens, 'src: 'tokens>() -> impl Parser<
 > + Clone {
     let struct_field = ident_parser()
         .clone()
-        .then_ignore(just(Token::PathSeperator).labelled("::"))
+        .then_ignore(just(Token::Hashtag).labelled("#"))
         .then(type_parser())
         .map_with(|(name, r#type), ctx| (StructField { name, r#type }, ctx.span()))
         .labelled("struct declaration field");
@@ -93,8 +101,7 @@ pub fn struct_parser<'tokens, 'src: 'tokens>() -> impl Parser<
                 },
                 ctx.span(),
             )
-        })
-        .labelled("struct declaration");
+        });
     r#struct
 }
 
@@ -125,8 +132,7 @@ pub fn enum_parser<'tokens, 'src: 'tokens>(
                 .collect::<Vec<(EnumVariantDeclaration, SimpleSpan)>>(),
         )
         .then_ignore(just(Token::Semicolon))
-        .map_with(|(name, variants), ctx| (EnumDeclaration { name, variants }, ctx.span()))
-        .labelled("Enum declaration");
+        .map_with(|(name, variants), ctx| (EnumDeclaration { name, variants }, ctx.span()));
     r#enum
 }
 
@@ -143,8 +149,7 @@ pub fn import_parser<'tokens, 'src: 'tokens>(
                 .collect(),
         )
         .then(ident.clone())
-        .map_with(|(module, name), ctx| ((Import(module, (name, ctx.span()))), ctx.span()))
-        .labelled("Import");
+        .map_with(|(module, name), ctx| ((Import(module, (name, ctx.span()))), ctx.span()));
     import
 }
 

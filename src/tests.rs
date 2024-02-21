@@ -123,7 +123,7 @@ fn test_multiple_expressions() {
 }
 #[test]
 fn test_conditions() {
-    let input = r#"if 4 == 4 (print(foo):3)"#;
+    let input = r#"if (4 == 4) (3)"#;
     test(input);
 }
 #[test]

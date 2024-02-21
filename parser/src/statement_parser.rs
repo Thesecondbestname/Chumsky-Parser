@@ -1,3 +1,5 @@
+use std::string::ParseError;
+
 use crate::ast::{Expression, If, Statement, Value};
 use crate::convenience_parsers::{ident_parser, separator};
 use crate::convenience_types::{Error, ParserInput, Spanned};
@@ -110,6 +112,7 @@ where
                 return_.map_with(|stmnt: Statement, ctx| (stmnt, ctx.span())),
                 if_.map_with(|stmnt: Statement, ctx| (stmnt, ctx.span())),
                 assignment,
+                // TODO: Add recovery here in case user forgets the stmt cast
                 expr.then_ignore(just(Token::StmtCast))
                     .map(|(expr, span)| (Statement::Expression(expr), span)),
             ))
