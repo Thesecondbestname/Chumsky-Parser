@@ -1,10 +1,11 @@
 use crate::ast::{
     EnumDeclaration, EnumVariantDeclaration, Expression, FunctionDeclaration, Import, Item,
-    Statement, StructDeclaration, StructField, Type,
+    StructDeclaration, StructField, Type,
 };
 use crate::convenience_parsers::{ident_parser, separator, type_parser};
 use crate::convenience_types::{Error, ParserInput, Spanned};
 use crate::lexer::Token;
+use crate::util_parsers::newline;
 
 use chumsky::prelude::*;
 
@@ -149,8 +150,7 @@ pub fn import_parser<'tokens, 'src: 'tokens>(
                 .collect(),
         )
         .then(ident.clone())
+        .then_ignore(newline())
         .map_with(|(module, name), ctx| ((Import(module, (name, ctx.span()))), ctx.span()));
     import
 }
-
-pub fn trait_parser() {}

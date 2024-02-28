@@ -1,9 +1,10 @@
 use std::string::ParseError;
 
 use crate::ast::{Expression, If, Statement, Value};
-use crate::convenience_parsers::{ident_parser, separator};
+use crate::convenience_parsers::ident_parser;
 use crate::convenience_types::{Error, ParserInput, Spanned};
 use crate::lexer::Token;
+use crate::util_parsers::newline;
 use chumsky::prelude::*;
 
 pub fn statement_parser<'tokens, 'src: 'tokens, T>(
@@ -18,15 +19,17 @@ where
     // let comma = just(Token::Comma).labelled(",");
     let statement =
         {
-            // continue => "continue" expr
+            // continue => "continue"
             let continue_ = just(Token::Continue)
                 .ignored()
+                .then_ignore(newline())
                 .map(|()| -> Statement { Statement::Continue })
                 .labelled("Continue");
 
             // break => "break" expr
             let break_ = just(Token::Break)
                 .ignore_then(expr.clone())
+                .then_ignore(newline())
                 .map(|expr| -> Statement { Statement::Break(Box::new(expr)) })
                 .labelled("Break")
                 .as_context();
@@ -45,12 +48,14 @@ where
                         |exp| Statement::Return(Box::new(exp)),
                     )
                 })
+                .then_ignore(newline())
                 .labelled("Return")
                 .as_context();
 
             // loop => "loop" expr block
             let loop_ = just(Token::Loop)
                 .ignore_then(expr.clone())
+                .then_ignore(newline())
                 .map(|expr| -> Statement { Statement::Loop(expr) })
                 .labelled("loop statement")
                 .as_context();
@@ -59,6 +64,7 @@ where
             let assignment = ident_parser()
                 .then_ignore(just(Token::Assign))
                 .then(expr.clone())
+                .then_ignore(newline())
                 .map_with(|(name, val), ctx| -> (Statement, SimpleSpan) {
                     (
                         Statement::VariableDeclaration(name, Box::new(val)),

@@ -1,10 +1,11 @@
 #![allow(non_snake_case)]
 use ariadne::{Color, Label, Report, ReportKind, Source};
 use colored::Colorize;
-use parser::{lex_arrow_program, parse_from_lex, range_into_span};
+use parser::{lex_sketchy_program, parse_from_lex, range_into_span, SketchyParser};
 mod compiler;
+use anyhow::Result;
 
-fn main() {
+fn main() -> anyhow::Result<()> {
     let input_verified = r#"use io_print
     x = xöla
     y = 69 / (56 - 0.45)
@@ -27,8 +28,15 @@ fn main() {
     ) else (
         print ("phew")
     )"#;
+
     print!("{esc}c", esc = 27 as char);
     let mut quit = false;
+
+    let lex = SketchyParser::builder()
+        .from_input(input_verified)
+        .lex_sketchy_programm()
+        .into_result()?;
+
     parse_from_string(input_verified.to_string());
     while !quit {
         let mut usr_input = String::new();
@@ -41,6 +49,7 @@ fn main() {
         }
         parse_from_string(usr_input);
     }
+    Ok(())
 }
 fn print_error(error: parser::OutputError, input: &str) {
     let span = error.span();
@@ -50,12 +59,13 @@ fn print_error(error: parser::OutputError, input: &str) {
         .collect::<Vec<_>>()
         .concat();
     let found = error.found().unwrap_or(&parser::Token::Nothing);
-    let context = error.contexts().last();
+    let empty_span = parser::empty_span(span.start);
+    let context = error
+        .contexts()
+        .last()
+        .unwrap_or_else(|| (&"No context", &empty_span));
     Report::build(ReportKind::Error, (), span.start)
-        .with_message(format!(
-            "error while parsing {:?}",
-            context.expect("[INTERNAL ERROR]: FAILED TO HANDEL UNKNOWN CONTEXT")
-        ))
+        .with_message(format!("error while parsing {:?}", context))
         .with_label(
             Label::new(span.start..span.end)
                 .with_message(format!("found {found:?}",))
@@ -67,15 +77,20 @@ fn print_error(error: parser::OutputError, input: &str) {
         .expect("Whooo unable to create error...");
 }
 fn parse_from_string(inp: String) {
-    let lex_result = lex_arrow_program(&inp);
+    let lex_result = lex_sketchy_program(&inp);
     if !lex_result.is_ok() {
         for error in lex_result.errors() {
             // TODO: Convert into a ariadne diagnostic
-            println!("{} in span {:?} with {:?}", "ERROR: ", error.1, error.2);
+            println!(
+                "{} in span {:?} with {:?}",
+                "ERROR: ".red(),
+                error.1,
+                error.2
+            );
         }
     }
-    let parser_input = &range_into_span(lex_result.tokens());
-    let parse_result = parse_from_lex(parser_input);
+    let parser_input = range_into_span(lex_result.tokens());
+    let parse_result = parse_from_lex(&parser_input);
     parse_result.clone().into_output().map_or_else(
         || {
             println!("\n{}", "No parser Output".yellow());

@@ -17,6 +17,7 @@ miette = "5.5.0"
 logos = "0.13.0"
 colored = "2.0.0"
 parser = { path = "parser" }
+anyhow = "1.0.80"
 
 [profile.dev.package."*"]
 opt-level = 3

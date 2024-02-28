@@ -1,6 +1,6 @@
 use ariadne::{Color, ColorGenerator, Label, Report, ReportKind, Source};
 use colored::Colorize;
-use parser::{self, parse_from_lex, range_into_span, OutputError};
+use parser::{parse_from_lex, range_into_span, OutputError};
 #[test]
 fn test_basic_lex() {
     let lex = r#"use io_print
@@ -140,7 +140,7 @@ fn test(input: &str) {
     let input = input.to_string();
     let mut colors = ColorGenerator::new();
     let a = colors.next();
-    let lex_result = parser::lex_arrow_program(&input);
+    let lex_result = parser::lex_sketchy_program(&input);
     if !lex_result.is_ok() {
         for x in lex_result.errors() {
             // println!("{} at {:#?} with {}", "LEX ERROR".red(), &x.1, &x.2);

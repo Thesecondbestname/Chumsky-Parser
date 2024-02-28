@@ -79,3 +79,15 @@ where
         just(Token::Rparen).delimited_by(separator(), separator()),
     )
 }
+pub fn newline<'tokens, 'src: 'tokens>() -> impl Parser<
+    'tokens,
+    ParserInput<'tokens, 'src>, // Input
+    (),                         // Output
+    Error<'tokens>,             // Error Type
+> + Clone {
+    choice((
+        just(Token::Newline).map(|_| ()),
+        end(),
+        just(Token::Rparen).rewind().map(|_| ()),
+    ))
+}

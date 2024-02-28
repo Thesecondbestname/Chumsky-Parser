@@ -1,6 +1,7 @@
 use crate::{ast, impl_display};
 use logos::{Lexer, Logos};
 pub type Lex = Vec<(Token, std::ops::Range<usize>)>;
+pub type LexError = Vec<((), std::ops::Range<usize>, String)>;
 
 #[derive(Debug, PartialEq, Eq, Clone)]
 pub struct Span {
@@ -10,7 +11,7 @@ pub struct Span {
 /// A Result type holding the successfully lexed tokens and any eventual errors
 pub struct LexResult {
     tokens: Lex,
-    errors: Vec<((), std::ops::Range<usize>, String)>,
+    errors: LexError,
 }
 impl LexResult {
     fn new(tokens: Lex, errors: Vec<((), std::ops::Range<usize>, String)>) -> Self {
@@ -24,6 +25,14 @@ impl LexResult {
     }
     pub const fn errors(&self) -> &Vec<((), std::ops::Range<usize>, String)> {
         &self.errors
+    }
+    /// Converts the lex to a result, consuming and returning the Lex if no errors exist and a tuple of lex and errors otherwise
+    pub fn to_result(self) -> Result<Lex, (Lex, LexError)> {
+        if self.is_ok() {
+            Ok(self.tokens)
+        } else {
+            Err((self.tokens, self.errors))
+        }
     }
 }
 
@@ -163,17 +172,15 @@ pub enum Number {
 }
 impl Eq for Number {}
 
-/// .
-///
 /// # Panics
 ///
-/// Panics if .
+/// Panics if I misused unwrap here.
 ///
 /// # Errors
 ///
-/// This function will return an error if .
+/// This function will return an error if Lexing was unsuccessful.
 #[must_use]
-pub fn lex_arrow_program(inp: &String) -> LexResult {
+pub fn lex_sketchy_program(inp: &String) -> LexResult {
     let parse = Token::lexer(&inp[..]);
     let (token, err): (Vec<_>, Vec<_>) = parse.clone().spanned().partition(|token| token.0.is_ok());
     let result = LexResult::new(
