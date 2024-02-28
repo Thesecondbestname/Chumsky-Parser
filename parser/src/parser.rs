@@ -54,7 +54,7 @@ pub fn range_into_span(input: &Vec<(Token, std::ops::Range<usize>)>) -> Vec<(Tok
 }
 // ----- STATES ----
 #[derive(Default, Clone)]
-struct NotInitialized;
+pub struct NotInitialized;
 #[derive(Default, Clone, Debug)]
 struct Initialized(String);
 #[derive(Default, Clone, Debug)]
@@ -100,7 +100,7 @@ impl<L, P> SketchyParserBuilder<Initialized, L, P> {
     }
 }
 impl<P> SketchyParserBuilder<Initialized, Lexed, P> {
-    pub fn parse_sketchy_programm<'a>(&'a self) -> ParserResult {
+    pub fn parse_sketchy_programm<'a>(self) -> ParserResult<'a> {
         let parse = parse_from_lex(&self.tokens.as_ref().unwrap().0);
         {
             let (ast, errs) = parse.into_output_errors();
@@ -129,7 +129,7 @@ impl SketchyParserBuilder<Initialized, Lexed, Parsed> {
     }
 }
 impl SketchyParser {
-    pub fn builder<I: Default, L: Default, P: Default>() -> SketchyParserBuilder<I, L, P> {
+    pub fn builder() -> SketchyParserBuilder<NotInitialized, NotInitialized, NotInitialized> {
         SketchyParserBuilder::default()
     }
 }

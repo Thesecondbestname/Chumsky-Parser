@@ -3,7 +3,6 @@ use ariadne::{Color, Label, Report, ReportKind, Source};
 use colored::Colorize;
 use parser::{lex_sketchy_program, parse_from_lex, range_into_span, SketchyParser};
 mod compiler;
-use anyhow::Result;
 
 fn main() -> anyhow::Result<()> {
     let input_verified = r#"use io_print
@@ -35,7 +34,10 @@ fn main() -> anyhow::Result<()> {
     let lex = SketchyParser::builder()
         .from_input(input_verified)
         .lex_sketchy_programm()
-        .into_result()?;
+        .into_result()?
+        .parse_sketchy_programm()
+        .into_result()?
+        .build();
 
     parse_from_string(input_verified.to_string());
     while !quit {
