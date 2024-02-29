@@ -1,8 +1,10 @@
+use std::borrow::BorrowMut;
+
 use ariadne::{Color, ColorGenerator, Label, Report, ReportKind, Source};
 use colored::Colorize;
-use parser::{parse_from_lex, range_into_span, OutputError};
+use parser::{OutputError, SketchyParser};
 #[test]
-fn test_basic_lex() {
+fn test_basic_lex() -> anyhow::Result<()> {
     let lex = r#"use io_print
     x = xöla
     y = 69 / (56 - 0.45)
@@ -17,159 +19,147 @@ fn test_basic_lex() {
     int add: x# int, y# int (
         x + y
     // Some kinda idk  
-    add (4,5).sqrt:3
+    add (4,5). sqrt:3
     
     if x == 4  (
         print ("oooops!"):3
     ) else (
         print ("phew"):3
     )"#;
-    test(lex);
+    test(lex, "test_basic_lex")
 }
 #[test]
-fn test_structs() {
+fn test_structs() -> anyhow::Result<()> {
     let input = r#"struct baz:
         lmao# int,
         lmao2# int
     ;"#;
-    test(input);
+    test(input, "test_structs")
 }
 #[test]
-fn test_method_calls() {
+fn test_method_calls() -> anyhow::Result<()> {
     let input = "500.sqrt:3";
-    test(input);
+    test(input, "test_method_calls")
 }
 #[test]
-fn test_loops() {
+fn test_loops() -> anyhow::Result<()> {
     let input = "loop (
-        a = 5
+         a = 5
         return 3
         continue
     \n)";
-    test(input);
+    test(input, "test_loops")
 }
 #[test]
-fn test_return() {
+fn test_return() -> anyhow::Result<()> {
     let input = "return 3";
-    test(input);
+    test(input, "test_return")
 }
 #[test]
-fn test_continue() {
+fn test_continue() -> anyhow::Result<()> {
     let input = "loop (continue)";
-    test(input);
+    test(input, "test_continue")
 }
 #[test]
-fn test_function_definitions() {
+fn test_function_definitions() -> anyhow::Result<()> {
     let input = "int draw: 
     state #SnekGame, 
     frame #Canvas, 
     window #Window( 
-        a-3
+         a-3
     )";
-    test(input);
+    test(input, "test_function_definitions")
 }
 
 #[test]
-fn test_span() {
+fn test_span() -> anyhow::Result<()> {
     let input = "0..500:3";
-    test(input);
+    test(input, "test_span")
 }
 #[test]
-fn test_use() {
+fn test_use() -> anyhow::Result<()> {
     let input = r#"use foo_bar_baz"#;
-    test(input);
+    test(input, "test_use")
 }
 #[test]
-fn test_seperator() {
+fn test_seperator() -> anyhow::Result<()> {
     let input = r#"x= 50
         print(ksjdfo):3 "#;
-    test(input);
+    test(input, "test_seperator")
 }
 #[test]
-fn test_angery_case() {
+fn test_angery_case() -> anyhow::Result<()> {
     let input = r#"x = 50.sqrt
         y = ksjdfo
         print(Works):3"#;
-    test(input);
+    test(input, "test_angery_case")
 }
 #[test]
-fn test_assign() {
+fn test_assign() -> anyhow::Result<()> {
     let input = "x = 5 + 5 * (69 +420)";
-    test(input);
+    test(input, "test_assign")
 }
 #[test]
-fn test_bool_expr() {
+fn test_bool_expr() -> anyhow::Result<()> {
     let input = r#"4 == 4 and 5 <= (5 + 1):3"#;
-    test(input);
+    test(input, "test_bool_expr")
 }
 #[test]
-fn test_call() {
+fn test_call() -> anyhow::Result<()> {
     let input = r#"foo.bar(test) :3"#;
-    test(input);
+    test(input, "test_call")
 }
 #[test]
-fn test_string() {
+fn test_string() -> anyhow::Result<()> {
     let input = r#""Hi!":3"#;
-    test(input);
+    test(input, "test_string")
 }
 
 #[test]
-fn test_multiple_expressions() {
+fn test_multiple_expressions() -> anyhow::Result<()> {
     let input = "(
-    x = 4+5
+     x = 4+5
         x = 32
     ):3";
-    test(input);
+    test(input, "test_multiple_expressions")
 }
 #[test]
-fn test_conditions() {
+fn test_conditions() -> anyhow::Result<()> {
     let input = r#"if (4 == 4) (3)"#;
-    test(input);
+    test(input, "test_conditions")
 }
 #[test]
-fn test_call_string() {
+fn test_call_string() -> anyhow::Result<()> {
     let input = r#"print ("foo"):3"#;
-    test(input);
+    test(input, "test_call_string")
 }
 #[test]
-fn test_math_operation() {
+fn test_math_operation() -> anyhow::Result<()> {
     let input = r#"2+7/(3+4):3"#;
-    test(input);
+    test(input, "test_math_operation")
 }
-fn test(input: &str) {
-    let input = input.to_string();
+fn test(input: &str, name: &str) -> anyhow::Result<()> {
     let mut colors = ColorGenerator::new();
     let a = colors.next();
-    let lex_result = parser::lex_sketchy_program(&input);
-    if !lex_result.is_ok() {
-        for x in lex_result.errors() {
-            // println!("{} at {:#?} with {}", "LEX ERROR".red(), &x.1, &x.2);
+    let parse = SketchyParser::builder()
+        .from_input(input)
+        .lex_sketchy_programm()
+        .print_errors(|span, token, input| {
             Report::build(ReportKind::Error, "test", 12)
-                .with_message(format!("{x:?}"))
+                .with_message(format!("Error while lexing test {input}"))
                 .with_label(
-                    Label::new(("test", x.clone().1))
-                        .with_message(x.2.to_string())
+                    Label::new(("test", span.clone()))
+                        .with_message(format!("Found unexpected Token {token:?} at {span:?}"))
                         .with_color(a),
                 )
                 .finish()
                 .print(("test", Source::from(input.clone())))
                 .expect("Falied to build report!");
-        }
-        assert!(false);
-    }
-
-    let lex = range_into_span(lex_result.tokens());
-    let parse = parse_from_lex(&lex);
-    parse.clone().into_output().map_or_else(
-        || {
-            println!("\n{}", "No parser Output".yellow());
-        },
-        |out| {
-            println!("\n{}: {:#?}", "PARSER OUTPUT".green(), out);
-        },
-    );
-    for error in parse.clone().into_errors() {
-        crate::print_error(error, &input)
-    }
-    assert!(!parse.has_errors());
+        })
+        .into_result()?
+        .parse_sketchy_programm()
+        .print_errors(crate::print_error)
+        .into_result()?
+        .build();
+    Ok(())
 }
