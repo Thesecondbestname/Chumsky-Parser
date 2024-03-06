@@ -1,13 +1,11 @@
-use std::borrow::BorrowMut;
-
-use ariadne::{Color, ColorGenerator, Label, Report, ReportKind, Source};
-use colored::Colorize;
-use parser::{OutputError, SketchyParser};
+use ariadne::{ColorGenerator, Label, Report, ReportKind, Source};
+use parser::SketchyParser;
 #[test]
 fn test_basic_lex() -> anyhow::Result<()> {
     let lex = r#"use io_print
     x = xöla
     y = 69 / (56 - 0.45)
+
     print(Works):3
     enum Foo:
         baz

@@ -13,7 +13,7 @@ fn main() -> anyhow::Result<()> {
     print(Works?)
     enum Foo:
         baz
-    ;
+   ;
     struct baz:
         lmao# int,
         lmao2# int
@@ -67,7 +67,7 @@ fn print_error(error: &OutputError, ast: &OutputType, input: &str) {
         .concat();
     let found = error.found().unwrap_or(&parser::Token::Nothing);
     let empty_span = parser::span_functions::span_from(span.start);
-    eprintln!("[DEBUG]\n\n{input}\n\n{}", ast.0);
+    eprintln!("[DEBUG]\n\n{}", ast.0);
     let context = error
         .contexts()
         .last()

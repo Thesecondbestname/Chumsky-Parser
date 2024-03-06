@@ -10,11 +10,6 @@ use chumsky::prelude::*;
 use chumsky::span::Span;
 use thiserror::Error as DeriveError;
 
-// recursive Block parser (Block)
-//     elements ::= repeated block element
-//     delimited elements
-//
-
 fn block_parser<'tokens, 'src: 'tokens>() -> impl Parser<
     'tokens,
     ParserInput<'tokens, 'src>, // Input
@@ -76,12 +71,18 @@ impl<L, P> SketchyParserBuilder<Initialized, L, P> {
         }
     }
     pub fn remove_duplicate_newline(self) -> Self {
-        self.input
-            .0
-            .chars()
-            .collect::<Vec<_>>()
-            .dedup_by(|a, b| !(a.is_whitespace() && b.is_whitespace()));
-        self
+        let mut new_str = self.input.0.trim().to_owned();
+        let mut prev = '\n'; // The initial value doesn't really matter
+        new_str.retain(|ch| {
+            let result = ch != '\n' || prev != '\n';
+            prev = ch;
+            result
+        });
+        println!("{new_str}");
+        Self {
+            input: Initialized(new_str),
+            ..self
+        }
     }
     pub fn lex_sketchy_programm(self) -> LexResult<P> {
         LexResult(

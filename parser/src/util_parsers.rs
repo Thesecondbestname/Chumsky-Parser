@@ -86,8 +86,9 @@ pub fn newline<'tokens, 'src: 'tokens>() -> impl Parser<
     Error<'tokens>,             // Error Type
 > + Clone {
     choice((
-        just(Token::Newline).map(|_| ()),
+        just(Token::Newline).ignored(),
         end(),
-        just(Token::Rparen).rewind().map(|_| ()),
+        just(Token::Rparen).rewind().ignored(),
+        just(Token::Lparen).rewind().ignored(),
     ))
 }

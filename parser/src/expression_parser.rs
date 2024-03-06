@@ -55,7 +55,9 @@ pub mod expressions {
                 // A list of expressions
                 let items = expression
                     .clone()
-                    .separated_by(just(Token::Comma).delimited_by(just(Token::Newline).or_not().ignored(),just(Token::Newline).or_not().ignored()))
+                    .separated_by(just(Token::Comma)
+ // .delimited_by(just(Token::Newline).or_not().ignored(),just(Token::Newline).or_not().ignored())
+                    )                     
                     .allow_trailing()
                     .collect::<Vec<_>>()
                     .labelled("a list of expressions");
