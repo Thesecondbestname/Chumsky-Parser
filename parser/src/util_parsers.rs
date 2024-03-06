@@ -17,7 +17,7 @@ pub fn separator<'tokens, 'src: 'tokens>() -> impl Parser<
     (),                         // Output
     Error<'tokens>,             // Error Type
 > + Clone {
-    just(Token::Newline).repeated()
+    just(Token::Newline).or_not().ignored()
 }
 pub fn type_parser<'tokens, 'src: 'tokens>() -> impl Parser<
     'tokens,

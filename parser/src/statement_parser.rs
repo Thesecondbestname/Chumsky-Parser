@@ -1,5 +1,3 @@
-use std::string::ParseError;
-
 use crate::ast::{Expression, If, Statement, Value};
 use crate::convenience_parsers::ident_parser;
 use crate::convenience_types::{Error, ParserInput, Spanned};
@@ -112,15 +110,15 @@ where
                 }).collect::<Vec<_>>())
                     });
             choice((
+                expr.then_ignore(just(Token::StmtCast))
+                    .map(|(expr, span)| (Statement::Expression(expr), span)),
+                assignment,
                 loop_.map_with(|stmnt: Statement, ctx| (stmnt, ctx.span())),
                 continue_.map_with(|stmnt: Statement, ctx| (stmnt, ctx.span())),
                 break_.map_with(|stmnt: Statement, ctx| (stmnt, ctx.span())),
                 return_.map_with(|stmnt: Statement, ctx| (stmnt, ctx.span())),
                 if_.map_with(|stmnt: Statement, ctx| (stmnt, ctx.span())),
-                assignment,
                 // TODO: Add recovery here in case user forgets the stmt cast
-                expr.then_ignore(just(Token::StmtCast))
-                    .map(|(expr, span)| (Statement::Expression(expr), span)),
             ))
         };
     statement

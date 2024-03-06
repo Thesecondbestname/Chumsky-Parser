@@ -1,7 +1,7 @@
 #![feature(try_trait_v2)]
+#![allow(clippy::needless_return)]
+#![allow(needless_return)]
 use chumsky::prelude::Rich;
-use chumsky::span::SimpleSpan;
-use chumsky::span::Span;
 pub use lexer::Token;
 mod ast;
 mod expression_parser;
@@ -23,14 +23,18 @@ mod convenience_types {
         chumsky::input::SpannedInput<Token, Span, &'tokens [(Token, Span)]>;
     pub(crate) type Span = chumsky::span::SimpleSpan<usize>;
 }
-pub fn empty_span() -> SimpleSpan {
-    SimpleSpan::new(0, 0)
-}
-pub fn span_from(offset: usize) -> SimpleSpan {
-    SimpleSpan::splat(offset)
-}
-pub fn range_to_span(range: &std::ops::Range<usize>) -> SimpleSpan {
-    SimpleSpan::from(range.clone())
+pub mod span_functions {
+
+    use chumsky::span::SimpleSpan;
+    pub fn empty_span() -> SimpleSpan {
+        SimpleSpan::new(0, 0)
+    }
+    pub fn span_from(offset: usize) -> SimpleSpan {
+        SimpleSpan::splat(offset)
+    }
+    pub fn range_to_span(range: &std::ops::Range<usize>) -> SimpleSpan {
+        SimpleSpan::from(range.clone())
+    }
 }
 mod parsers {
     pub(crate) use crate::{

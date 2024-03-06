@@ -39,10 +39,10 @@ pub mod expressions {
                 let atom = choice((ident.map(Expression::Ident), number, bool, string, span))
                     .map_with(|expr, span| (expr, span.span()))
                     // Atoms can also just be normal expressions, but surrounded with parentheses
+                    .or(block.clone().labelled("ExpressionBlock").as_context())
                     .or(extra_delimited::<_, Spanned<Expression>>(
                         expression.clone(),
                     ))
-                    .or(block.clone())
                     // Attempt to recover anything that looks like a parenthesised expression but contains errors
                     .recover_with(via_parser(nested_delimiters(
                         Token::Lparen,
@@ -55,7 +55,7 @@ pub mod expressions {
                 // A list of expressions
                 let items = expression
                     .clone()
-                    .separated_by(just(Token::Comma))
+                    .separated_by(just(Token::Comma).delimited_by(just(Token::Newline).or_not().ignored(),just(Token::Newline).or_not().ignored()))
                     .allow_trailing()
                     .collect::<Vec<_>>()
                     .labelled("a list of expressions");

@@ -23,7 +23,7 @@ pub struct Path(pub Vec<Spanned<String>>);
 
 #[derive(Debug, Clone)]
 pub enum Item {
-    //TODO: Readd span here
+    //TODO: Read span here
     Function(FunctionDeclaration),
     Import(Spanned<Import>),
     Enum(Spanned<EnumDeclaration>),

@@ -1,15 +1,19 @@
-#![allow(clippy::needless_return)]
 use crate::ast::{Block, BlockElement, Expression};
 use crate::convenience_types::{Error, ParserInput, Spanned};
 use crate::item_parser::item_parser;
 use crate::lexer::{lex_sketchy_program, Lex, LexError};
+use crate::parsers::*;
+use crate::span_functions::empty_span;
 use crate::util_parsers::extra_delimited;
 use crate::Token;
-use crate::{empty_span, parsers::*};
-use chumsky::container::Container;
 use chumsky::prelude::*;
 use chumsky::span::Span;
 use thiserror::Error as DeriveError;
+
+// recursive Block parser (Block)
+//     elements ::= repeated block element
+//     delimited elements
+//
 
 fn block_parser<'tokens, 'src: 'tokens>() -> impl Parser<
     'tokens,
@@ -17,29 +21,20 @@ fn block_parser<'tokens, 'src: 'tokens>() -> impl Parser<
     Spanned<Expression>,        // Output
     Error<'tokens>,             // Error Type
 > + Clone {
-    // import, function, statement, scope
-    let scope = recursive(|block| {
+    // import, function, statement
+    return recursive(|block| {
         let block_element = choice((
             item_parser(block.clone()).map_with(|item, ctx| BlockElement::Item((item, ctx.span()))),
             statement_parser(expression_parser(block)).map(BlockElement::Statement),
         ));
-        let delimited_block = extra_delimited::<_, Spanned<BlockElement>>(
+        return extra_delimited::<_, Spanned<Expression>>(
             block_element
-                .clone()
-                .map_with(|expr, ctx| (expr, ctx.span())),
-        )
-        .repeated()
-        .collect::<Vec<_>>()
-        .map_with(|items, ctx| (Expression::Block(Block(items)), ctx.span()));
-
-        let program = block_element
-            .map_with(|item, ctx| (item, ctx.span()))
-            .repeated()
-            .collect::<Vec<_>>()
-            .map_with(|items, ctx| (Expression::Block(Block(items)), ctx.span()));
-        return delimited_block;
+                .map_with(|expr, ctx| (expr, ctx.span()))
+                .repeated()
+                .collect::<Vec<_>>()
+                .map_with(|items, ctx| (Expression::Block(Block(items)), ctx.span())),
+        );
     });
-    return scope;
 }
 // ----- STATES ----
 #[derive(Default, Clone)]
@@ -73,6 +68,21 @@ impl<I, L: Default, P: Default> SketchyParserBuilder<I, L, P> {
     }
 }
 impl<L, P> SketchyParserBuilder<Initialized, L, P> {
+    pub fn parenthesize_program(self) -> Self {
+        let str = "(".to_owned() + &self.input.0 + ")";
+        Self {
+            input: Initialized(str),
+            ..self
+        }
+    }
+    pub fn remove_duplicate_newline(self) -> Self {
+        self.input
+            .0
+            .chars()
+            .collect::<Vec<_>>()
+            .dedup_by(|a, b| !(a.is_whitespace() && b.is_whitespace()));
+        self
+    }
     pub fn lex_sketchy_programm(self) -> LexResult<P> {
         LexResult(
             lex_sketchy_program(&format!("({})", self.input.0))
@@ -120,7 +130,7 @@ impl<P> SketchyParserBuilder<Initialized, Lexed, P> {
     }
 }
 impl SketchyParserBuilder<Initialized, Lexed, Parsed> {
-    pub fn build(self) -> SketchyParser {
+    pub fn finish(self) -> SketchyParser {
         SketchyParser {
             input: self.input.0,
             parse_result: self.parse_result.0.expect(

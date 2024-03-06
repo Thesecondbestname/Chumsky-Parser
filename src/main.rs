@@ -6,7 +6,8 @@ mod compiler;
 mod tests;
 
 fn main() -> anyhow::Result<()> {
-    let input_verified = r#"use io_print
+    let input_verified = r#"
+    use io_print
     x = xöla
     y = 69 / (56 - 0.45)
     print(Works?)
@@ -29,7 +30,7 @@ fn main() -> anyhow::Result<()> {
         print ("phew")
     )"#;
 
-    print!("{esc}c", esc = 27 as char);
+    // print!("{esc}c", esc = 27 as char);
     let mut quit = false;
 
     let parse = SketchyParser::builder()
@@ -42,7 +43,7 @@ fn main() -> anyhow::Result<()> {
         .parse_sketchy_programm()
         .print_errors(print_error)
         .into_result()?
-        .build();
+        .finish();
 
     while !quit {
         let mut usr_input = String::new();
@@ -50,7 +51,7 @@ fn main() -> anyhow::Result<()> {
             .read_line(&mut usr_input)
             .expect("Failed to read line");
 
-        if usr_input == "q" {
+        if usr_input.trim_end() == "q" {
             quit = true;
         }
         // parse_from_string(usr_input);
@@ -61,15 +62,16 @@ fn print_error(error: &OutputError, ast: &OutputType, input: &str) {
     let span = error.span();
     let expected = error
         .expected()
-        .map(|a| format!("{:#?} ", a))
+        .map(|a| format!("{a:#?} "))
         .collect::<Vec<_>>()
         .concat();
     let found = error.found().unwrap_or(&parser::Token::Nothing);
-    let empty_span = parser::span_from(span.start);
+    let empty_span = parser::span_functions::span_from(span.start);
+    eprintln!("[DEBUG]\n\n{input}\n\n{}", ast.0);
     let context = error
         .contexts()
         .last()
-        .unwrap_or_else(|| (&"No context", &empty_span));
+        .unwrap_or((&"No context", &empty_span));
     Report::build(ReportKind::Error, (), span.start)
         .with_message(format!("error while parsing {:?}", context))
         .with_label(
@@ -79,27 +81,5 @@ fn print_error(error: &OutputError, ast: &OutputType, input: &str) {
         )
         .with_note(format!("Expected one of {expected} but found {found}"))
         .finish()
-        .eprint(Source::from(input))
-        .expect("Whooo unable to create error...");
+        .eprint(Source::from(input));
 }
-// fn parse_from_string(inp: String) {
-//     let lex_result = lex_sketchy_program(&inp);
-//     if !lex_result.is_ok() {}
-//     let parser_input = lex_result
-//         .tokens()
-//         .iter()
-//         .map(|(tok, range)| (tok, range_to_span(range)))
-//         .collect();
-//     let parse_result = parse_from_lex(&parser_input);
-//     parse_result.clone().into_output().map_or_else(
-//         || {
-//             println!("\n{}", "No parser Output".yellow());
-//         },
-//         |out| {
-//             println!("\n{}: {:#?}", "PARSER OUTPUT".green(), out);
-//         },
-//     );
-//     for error in parse_result.clone().into_errors() {
-//         crate::print_error(error, &inp)
-//     }
-// }

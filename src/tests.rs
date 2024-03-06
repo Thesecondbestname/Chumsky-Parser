@@ -44,7 +44,7 @@ fn test_method_calls() -> anyhow::Result<()> {
 #[test]
 fn test_loops() -> anyhow::Result<()> {
     let input = "loop (
-         a = 5
+        a = 5
         return 3
         continue
     \n)";
@@ -82,10 +82,10 @@ fn test_use() -> anyhow::Result<()> {
     test(input, "test_use")
 }
 #[test]
-fn test_seperator() -> anyhow::Result<()> {
-    let input = r#"x= 50
+fn test_separator() -> anyhow::Result<()> {
+    let input = r#"x = 50
         print(ksjdfo):3 "#;
-    test(input, "test_seperator")
+    test(input, "test_separator")
 }
 #[test]
 fn test_angery_case() -> anyhow::Result<()> {
@@ -96,7 +96,7 @@ fn test_angery_case() -> anyhow::Result<()> {
 }
 #[test]
 fn test_assign() -> anyhow::Result<()> {
-    let input = "x = 5 + 5 * (69 +420)";
+    let input = "\nx = 5 + 5 * (69 +420)";
     test(input, "test_assign")
 }
 #[test]
@@ -129,6 +129,11 @@ fn test_conditions() -> anyhow::Result<()> {
     test(input, "test_conditions")
 }
 #[test]
+fn test_multiple_calls() -> anyhow::Result<()> {
+    let input = r#"lambda(3)(5).add(helo):3"#;
+    test(input, "test_conditions")
+}
+#[test]
 fn test_call_string() -> anyhow::Result<()> {
     let input = r#"print ("foo"):3"#;
     test(input, "test_call_string")
@@ -143,23 +148,25 @@ fn test(input: &str, name: &str) -> anyhow::Result<()> {
     let a = colors.next();
     let parse = SketchyParser::builder()
         .from_input(input)
+        // .parenthesize_program()
+        .remove_duplicate_newline()
         .lex_sketchy_programm()
         .print_errors(|span, token, input| {
-            Report::build(ReportKind::Error, "test", 12)
+            Report::build(ReportKind::Error, name, 10)
                 .with_message(format!("Error while lexing test {input}"))
                 .with_label(
-                    Label::new(("test", span.clone()))
+                    Label::new((name, span.clone()))
                         .with_message(format!("Found unexpected Token {token:?} at {span:?}"))
                         .with_color(a),
                 )
                 .finish()
-                .print(("test", Source::from(input.clone())))
+                .eprint((name, Source::from(input)))
                 .expect("Falied to build report!");
         })
         .into_result()?
         .parse_sketchy_programm()
         .print_errors(crate::print_error)
         .into_result()?
-        .build();
+        .finish();
     Ok(())
 }
