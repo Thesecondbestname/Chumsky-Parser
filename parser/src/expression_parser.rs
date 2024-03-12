@@ -4,8 +4,9 @@ pub mod expressions {
     use crate::convenience_types::{Error, ParserInput, Spanned};
     use crate::util_parsers::extra_delimited;
     use crate::Token;
-    use chumsky::pratt::{infix, left, postfix, prefix, Postfix};
+    use chumsky::pratt::{infix, left, postfix, prefix};
     use chumsky::prelude::*;
+
     pub fn expression_parser<'tokens, 'src: 'tokens, T>(
         block: T,
     ) -> (impl Parser<
@@ -89,7 +90,6 @@ pub mod expressions {
                         },
                     )
                     .labelled("Function call");
-                // TODO: Fix this garbage with atom and call...
                 let method_call = call
                     .clone()
                     .foldl(
@@ -314,7 +314,6 @@ pub mod expressions {
             // add_sub ::= mul_div ("+" | "-") mul_div
             binary_math(left(4), Token::Plus, MathOp::Add),
             binary_math(left(4), Token::Minus, MathOp::Sub),
-            // TODO Require parentheses
             // compare ::= add_sub ("==" | "!=" | "<" | "<=" | ">" | ">=") add_sub
             binary_comp(left(3), Token::Eq, ComparisonOp::Eq),
             binary_comp(left(3), Token::Neq, ComparisonOp::Neq),

@@ -92,7 +92,6 @@ pub struct Variable {
 #[derive(Debug, Clone)]
 pub struct If {
     pub(crate) condition: Box<Spanned<Expression>>,
-    // FAT TODO: FIX THIS BLOCKS ARE STATEMENTS AND EXPRESSIONS AT THE SAME TIME
     pub(crate) code_block: Spanned<Expression>,
 }
 #[derive(Clone, Debug)]

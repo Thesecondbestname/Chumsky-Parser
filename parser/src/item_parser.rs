@@ -59,7 +59,7 @@ where
         .map_with(|(r#type, name), ctx| (r#type, (name, ctx.span())))
         .then_ignore(just(Token::Colon))
         .then(arguments)
-        .then(block.clone()) // TODO again using Block parser to parse a block
+        .then(block.clone())
         .map(
             |(((return_type, name), arguments), block)| FunctionDeclaration {
                 name,

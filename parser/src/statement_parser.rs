@@ -62,7 +62,7 @@ where
             let assignment = ident_parser()
                 .then_ignore(just(Token::Assign))
                 .then(expr.clone())
-                .then_ignore(newline())
+                .then_ignore(choice((just(Token::Newline).ignored(), end())))
                 .map_with(|(name, val), ctx| -> (Statement, SimpleSpan) {
                     (
                         Statement::VariableDeclaration(name, Box::new(val)),
