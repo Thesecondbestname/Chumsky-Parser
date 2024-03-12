@@ -4,7 +4,7 @@ use crate::item_parser::item_parser;
 use crate::lexer::{lex_sketchy_program, Lex, LexError};
 use crate::parsers::*;
 use crate::span_functions::empty_span;
-use crate::util_parsers::extra_delimited;
+use crate::util_parsers::{extra_delimited, newline};
 use crate::Token;
 use chumsky::prelude::*;
 use chumsky::span::Span;
@@ -25,7 +25,7 @@ fn block_parser<'tokens, 'src: 'tokens>() -> impl Parser<
         return extra_delimited::<_, Spanned<Expression>>(
             block_element
                 .map_with(|expr, ctx| (expr, ctx.span()))
-                .repeated()
+                .separated_by(newline())
                 .collect::<Vec<_>>()
                 .map_with(|items, ctx| (Expression::Block(Block(items)), ctx.span())),
         );
@@ -54,7 +54,7 @@ pub struct SketchyParserBuilder<I, L, P> {
     parse_result: P,
 }
 impl<I, L: Default, P: Default> SketchyParserBuilder<I, L, P> {
-    pub fn from_input(self, inp: impl Into<String>) -> SketchyParserBuilder<Initialized, L, P> {
+    pub fn input(self, inp: impl Into<String>) -> SketchyParserBuilder<Initialized, L, P> {
         SketchyParserBuilder {
             input: Initialized(inp.into()),
             tokens: self.tokens,
@@ -172,10 +172,7 @@ pub struct LexErr(Lex, LexError, String);
 #[derive(DeriveError)]
 pub struct LexResult<P>(anyhow::Result<SketchyParserBuilder<Initialized, Lexed, P>, LexErr>);
 impl<P> LexResult<P> {
-    pub fn print_errors(
-        self,
-        formater: impl Fn(&std::ops::Range<usize>, &Token, &str) -> (),
-    ) -> Self {
+    pub fn print_errors(self, formater: impl Fn(&std::ops::Range<usize>, &Token, &str)) -> Self {
         let Err(ref errors) = self.0 else {
             return self;
         };

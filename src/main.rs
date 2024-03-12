@@ -34,7 +34,7 @@ fn main() -> anyhow::Result<()> {
     let mut quit = false;
 
     let parse = SketchyParser::builder()
-        .from_input(input_verified)
+        .input(input_verified)
         .lex_sketchy_programm()
         .print_errors(|span, token, input| {
             println!("{} in span {span:?} with {token:?} at", "ERROR: ".red(),);

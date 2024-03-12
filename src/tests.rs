@@ -145,7 +145,7 @@ fn test(input: &str, name: &str) -> anyhow::Result<()> {
     let mut colors = ColorGenerator::new();
     let a = colors.next();
     let parse = SketchyParser::builder()
-        .from_input(input)
+        .input(input)
         // .parenthesize_program()
         .remove_duplicate_newline()
         .lex_sketchy_programm()
