@@ -220,7 +220,7 @@ fn parse_escaped_string(inp: String) -> String {
 impl_display!(Token, |s: &Token| {
     match s {
         Token::Plus => "+".to_string(),
-        Token::Newline => "Line break".to_string(),
+        Token::Newline => "Newline".to_string(),
         Token::Assign => "=".to_string(),
         Token::Bang => "!".to_string(),
         Token::Period => ".".to_string(),

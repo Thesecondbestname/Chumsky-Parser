@@ -1,6 +1,6 @@
 #[allow(clippy::too_many_lines)]
 pub mod expressions {
-    use crate::ast::{BinaryOp, ComparisonOp, Expression, MathOp, Number, Value};
+    use crate::ast::{BinaryOp, ComparisonOp, Expression, If, MathOp, Number, Value};
     use crate::convenience_types::{Error, ParserInput, Spanned};
     use crate::util_parsers::extra_delimited;
     use crate::Token;
@@ -201,8 +201,31 @@ pub mod expressions {
                 }; // Comparison ops (equal, not-equal) have equal precedence
                 comp.labelled("Atom").as_context().boxed()
             };
-
-            inline_expression
+            // if => "if" expr "then" expr ("else" expr)?
+            let if_ = just(Token::If)
+                .ignore_then(expression.clone())
+                .recover_with(via_parser(nested_delimiters(
+                    Token::If,
+                    Token::Lparen,
+                    [
+                        (Token::Lparen, Token::Rparen),
+                        (Token::Lbracket, Token::Rbracket),
+                    ],
+                    |span| (Expression::ParserError, span),
+                )))
+                .then(block.clone())
+                .map_with(|(condition, code_block), ctx| {
+                    (Expression::If(
+                        Box::new(If {
+                            condition: Box::new(condition),
+                            code_block,
+                        }),
+                    ),
+                        ctx.span())
+                })
+                .labelled("if *expression*")
+                .as_context();
+            choice((inline_expression, if_))
         })
     }
     fn atom_parser<'tokens, 'src: 'tokens, T>(

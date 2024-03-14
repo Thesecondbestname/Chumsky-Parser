@@ -69,8 +69,6 @@ pub enum Statement {
     ParserError,
     /// Whhere Variables are declared! Order is Name,Value but without optional Type
     VariableDeclaration(String, Box<Spanned<Expression>>),
-    If(Spanned<If>),
-    IfElse(Vec<Spanned<If>>),
     /// Control Flow! This shit doesn't return anything, rather the expression inside
     Break(Box<Spanned<Expression>>),
     /// Loop statement, takes only a codeblock. Might consider making this an expression giving the value after return.
@@ -97,6 +95,7 @@ pub struct If {
 #[derive(Clone, Debug)]
 pub enum Expression {
     ParserError,
+    If(Box<If>),
     Ident(String),
     List(Vec<Self>),
     FunctionCall(Box<Spanned<Self>>, Vec<Spanned<Self>>),
@@ -226,7 +225,6 @@ crate::impl_display!(Expression, |s: &Expression| {
 crate::impl_display!(Statement, |s: &Statement| {
     match s {
         Statement::ParserError => todo!(),
-        Statement::VariableDeclaration(_, _) => todo!(),
         Statement::Break(val) => format!("Break {}", val.0),
         Statement::Loop(_) => todo!(),
         Statement::Return(val) => format!("return {}", val.0),
