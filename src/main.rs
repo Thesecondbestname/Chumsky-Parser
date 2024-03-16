@@ -34,9 +34,9 @@ fn main() -> anyhow::Result<()> {
     let mut quit = false;
 
     let parse = SketchyParser::builder()
-        .input(input_verified)
+        .input(input_verified, "main")
         .lex_sketchy_programm()
-        .print_errors(|span, token, input| {
+        .print_errors(|span, token, input, name| {
             println!("{} in span {span:?} with {token:?} at", "ERROR: ".red(),);
         })
         .into_result()?
@@ -58,7 +58,7 @@ fn main() -> anyhow::Result<()> {
     }
     Ok(())
 }
-fn print_error(error: &OutputError, ast: &OutputType, input: &str) {
+fn print_error(error: &OutputError, ast: &OutputType, input: &str, src_name: &str) {
     let span = error.span();
     let expected = error
         .expected()
@@ -72,14 +72,14 @@ fn print_error(error: &OutputError, ast: &OutputType, input: &str) {
         .contexts()
         .last()
         .unwrap_or((&"No context", &empty_span));
-    Report::build(ReportKind::Error, (), span.start)
-        .with_message(format!("error while parsing {:?}", context))
+    let _ = Report::build(ReportKind::Error, src_name, 0)
+        .with_message(format!("error while parsing {context:?}"))
         .with_label(
-            Label::new(span.start..span.end)
+            Label::new((src_name, span.start..span.end))
                 .with_message(format!("found {found:?}",))
                 .with_color(Color::Red),
         )
         .with_note(format!("Expected one of {expected} but found {found}"))
         .finish()
-        .eprint(Source::from(input));
+        .eprint((src_name, Source::from(input)));
 }

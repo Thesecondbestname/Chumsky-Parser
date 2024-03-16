@@ -201,7 +201,7 @@ pub mod expressions {
                 }; // Comparison ops (equal, not-equal) have equal precedence
                 comp.labelled("Atom").as_context().boxed()
             };
-            // if => "if" expr "then" expr ("else" expr)?
+            // if => "if" expr block
             let if_ = just(Token::If)
                 .ignore_then(expression.clone())
                 .recover_with(via_parser(nested_delimiters(
@@ -210,6 +210,7 @@ pub mod expressions {
                     [
                         (Token::Lparen, Token::Rparen),
                         (Token::Lbracket, Token::Rbracket),
+                        (Token::Lparen, Token::Semicolon),
                     ],
                     |span| (Expression::ParserError, span),
                 )))

@@ -19,7 +19,6 @@ where
         // continue => "continue"
         let continue_ = just(Token::Continue)
             .ignored()
-            .then_ignore(newline())
             .map(|()| -> Statement { Statement::Continue })
             .labelled("Continue")
             .as_context();
@@ -27,7 +26,6 @@ where
         // break => "break" expr
         let break_ = just(Token::Break)
             .ignore_then(expr.clone())
-            .then_ignore(newline())
             .map(|expr| -> Statement { Statement::Break(Box::new(expr)) })
             .labelled("Break")
             .as_context();
@@ -46,7 +44,6 @@ where
                     |exp| Statement::Return(Box::new(exp)),
                 )
             })
-            .then_ignore(newline())
             .labelled("Return")
             .as_context();
 
@@ -62,7 +59,7 @@ where
         let assignment = ident_parser()
             .then_ignore(just(Token::Assign))
             .then(expr.clone())
-            // TEST IF THIS RESULTS IN ERRONIOUS PARSING
+            // TODO: TEST IF THIS RESULTS IN ERRONIOUS PARSING
             // .then_ignore(choice((just(Token::Newline).ignored(), end())))
             .map_with(|(name, val), ctx| -> (Statement, SimpleSpan) {
                 (
