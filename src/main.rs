@@ -73,7 +73,10 @@ fn print_error(error: &OutputError, ast: &OutputType, input: &str, src_name: &st
         .last()
         .unwrap_or((&"No context", &empty_span));
     let _ = Report::build(ReportKind::Error, src_name, 0)
-        .with_message(format!("error while parsing {context:?}"))
+        .with_message(format!(
+            "error while parsing {:?} at {:?}",
+            context.0, context.1
+        ))
         .with_label(
             Label::new((src_name, span.start..span.end))
                 .with_message(format!("found {found:?}",))

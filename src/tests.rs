@@ -6,7 +6,6 @@ fn test_basic_lex() -> anyhow::Result<()> {
     let lex = r#"use io_print
     x = xöla
     y = 69 / (56 - 0.45)
-
     print(Works):3
     enum Foo:
         baz
@@ -99,6 +98,11 @@ fn test_assign() -> anyhow::Result<()> {
     test(input, "test_assign")
 }
 #[test]
+fn test_else() -> anyhow::Result<()> {
+    let input = "24 + 4 else (b)";
+    test(input, "test_assign")
+}
+#[test]
 fn test_bool_expr() -> anyhow::Result<()> {
     let input = r"4 == 4 and 5 <= (5 + 1):3";
     test(input, "test_bool_expr")
@@ -129,7 +133,7 @@ fn test_lex_fail() -> anyhow::Result<()> {
 }
 #[test]
 fn test_conditions() -> anyhow::Result<()> {
-    let input = r"if 4 == 4 3:3";
+    let input = r"if (4 == 4) 3";
     test(input, "test_conditions")
 }
 #[test]
@@ -155,7 +159,7 @@ fn test(input: &str, name: &'static str) -> anyhow::Result<()> {
         .remove_duplicate_newline()
         .lex_sketchy_programm()
         .print_errors(|span, token, input, name| {
-            Report::build(ReportKind::Error, name, span.start)
+            Report::build(ReportKind::Error, name, 12)
                 .with_message(format!("Error while lexing test {input}"))
                 .with_label(
                     Label::new((name, span.clone()))
@@ -171,5 +175,6 @@ fn test(input: &str, name: &'static str) -> anyhow::Result<()> {
         .print_errors(crate::print_error)
         .into_result()?
         .finish();
+    println!("{}\n", parse.ast());
     Ok(())
 }

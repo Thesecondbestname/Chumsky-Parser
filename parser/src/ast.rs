@@ -181,15 +181,15 @@ pub struct Span {
     pub(crate) end: Number,
 }
 crate::impl_display!(Value, |s: &Value| match s {
-    Value::String(string) => format!("{}", string),
-    Value::Number(Number::Int(int)) => format!("{}", int),
+    Value::String(string) => format!("{string}"),
+    Value::Number(Number::Int(int)) => format!("{int}"),
     Value::Number(Number::Float(float)) => format!("{}", float),
     Value::Array(len, vals) => format!("{{len:{} [{:?}]}}", len, vals),
     Value::Tuple(vals) => format!("({:?})", vals),
     Value::Char(char) => format!("'{}'", char),
     Value::Bool(bool) => format!("{}", bool),
     Value::Span(start, end) => format!("{}..{}", start, end),
-    Value::Option(val) => format!("{{Optional: {}}}", val),
+    Value::Option(val) => format!("{}?", val),
     Value::Struct { name, fields } => format!(
         "{} {{{}}}",
         name,
@@ -202,36 +202,78 @@ crate::impl_display!(Value, |s: &Value| match s {
     Value::Enum { name, field, value } => format!("{} {{{}}}", name, field),
 });
 crate::impl_display!(MathOp, |s: &MathOp| match s {
-    MathOp::Add => format!("+"),
-    MathOp::Sub => format!("-"),
-    MathOp::Div => format!("/"),
-    MathOp::Mul => format!("*"),
+    MathOp::Add => "+".to_string(),
+    MathOp::Sub => "-".to_string(),
+    MathOp::Div => "/".to_string(),
+    MathOp::Mul => "*".to_string(),
 });
 crate::impl_display!(Expression, |s: &Expression| {
     match s {
         Expression::MathOp(a, b, c) => {
-            format!("(Mathematical Operation: {:#?} {:#?} {:#?})", a, b, c)
+            format!("({:?} {} {})", b, a.0, c.0)
         }
-        Expression::Value(a) => format!("{}", a),
-        Expression::Ident(a) => format!("{}", a),
-        Expression::ParserError => format!("Error"),
-        Expression::FunctionCall(called, args) => format!("{:#?} on ({:#?})", called, args),
-        Expression::Block(block) => format!("({:#?})", block),
-        Expression::Binary(a, op, b) => format!("Binary Operation: {:#?} {:#?} {:#?}", a, op, b),
+        Expression::Value(a) => format!("{a}"),
+        Expression::Ident(a) => format!("<{a}>"),
+        Expression::ParserError => "Error".to_string(),
+        Expression::FunctionCall(called, args) => format!("call ({} ({args:?})", called.0),
+        Expression::MethodCall(on, name, args) => {
+            format!("call ({} on {} ({args:?}) )", name, on.0)
+        }
+        Expression::Block(block) => format!("\n\t{block}"),
+        Expression::If(if_) => format!("{if_}"),
+        Expression::Comparison(lhs, op, rhs) => format!("({} {op:?} {})", lhs.0, rhs.0),
+        Expression::Binary(a, op, b) => format!("({:?} {} {})", op, a.0, b.0),
         fuck => format!("Not yet implemented to display {fuck:#?}"),
     }
 });
 
+crate::impl_display!(Block, |s: &Block| {
+    let mut res = String::new();
+    for block in &s.0 {
+        res.push_str(&format!("{}", block.0));
+    }
+    res
+});
+crate::impl_display!(If, |s: &If| {
+    let If {
+        condition,
+        code_block: blocc,
+    } = s;
+    format!("if {} then {})", condition.0, blocc.0)
+});
+crate::impl_display!(BlockElement, |s: &BlockElement| {
+    match s {
+        BlockElement::Item(item) => format!("{}", item.0),
+        BlockElement::Statement(stmt) => format!("{}", stmt.0),
+        BlockElement::SilentExpression(expr) => format!("{}", expr.0),
+    }
+});
+crate::impl_display!(Item, |s: &Item| {
+    match s {
+        Item::Function(FunctionDeclaration {
+            name,
+            return_type,
+            arguments,
+            body,
+        }) => format!(
+            "{}({arguments:?}) -> {:?} ({})",
+            name.0, return_type.0, body.0
+        ),
+        Item::Import(_) => todo!(),
+        Item::Enum(_) => todo!(),
+        Item::Struct(_) => todo!(),
+    }
+});
 crate::impl_display!(Statement, |s: &Statement| {
     match s {
-        Statement::ParserError => todo!(),
+        Statement::ParserError => "Error while parsing Statement".to_owned(),
         Statement::Break(val) => format!("Break {}", val.0),
-        Statement::Loop(_) => todo!(),
+        Statement::Loop(blocc) => format!("loop {}", blocc.0),
         Statement::Return(val) => format!("return {}", val.0),
         Statement::Continue => format!("continue"),
         Statement::WhileLoop(_, _) => todo!(),
         Statement::Expression(e) => format!("{e}"),
-        _ => format!("Not yet implemented :3"),
+        fuck => format!("Not yet implemented {fuck} :3\n"),
     }
 });
 impl Number {
@@ -261,6 +303,16 @@ macro_rules! impl_display {
         impl std::fmt::Display for $struct_name {
             fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
                 write!(f, "{}", &$write_calls(&self))
+            }
+        }
+    };
+}
+#[macro_export]
+macro_rules! display_inner {
+    ($struct_name:ident) => {
+        impl std::fmt::Display for $struct_name {
+            fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
+                write!(f, "{:#?}", stringify!($struct_name))
             }
         }
     };
