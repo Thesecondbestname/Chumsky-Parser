@@ -144,7 +144,8 @@ pub fn import_parser<'tokens, 'src: 'tokens>(
         .ignore_then(
             ident
                 .clone()
-                .then_ignore(just(Token::PathSeperator))
+                // TODO: Use path separator
+                .then_ignore(just(Token::Div))
                 .map_with(|module, ctx| (module, ctx.span()))
                 .repeated()
                 .collect(),

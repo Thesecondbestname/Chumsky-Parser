@@ -19,18 +19,17 @@ fn block_parser<'tokens, 'src: 'tokens>() -> impl Parser<
     // import, function, statement
     return recursive(|block| {
         let block_element = choice((
-            item_parser(block.clone()).map_with(|item, ctx| BlockElement::Item((item, ctx.span()))),
+            item_parser(extra_delimited::<_, Spanned<Expression>>(block.clone()))
+                .map_with(|item, ctx| BlockElement::Item((item, ctx.span()))),
             statement_parser(expression_parser(block))
                 .then_ignore(newline())
                 .map(BlockElement::Statement),
         ));
-        return extra_delimited::<_, Spanned<Expression>>(
-            block_element
-                .map_with(|expr, ctx| (expr, ctx.span()))
-                .repeated()
-                .collect::<Vec<_>>()
-                .map_with(|items, ctx| (Expression::Block(Block(items)), ctx.span())),
-        );
+        return block_element
+            .map_with(|expr, ctx| (expr, ctx.span()))
+            .repeated()
+            .collect::<Vec<_>>()
+            .map_with(|items, ctx| (Expression::Block(Block(items)), ctx.span()));
     });
 }
 // ----- STATES ----

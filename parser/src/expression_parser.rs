@@ -32,6 +32,7 @@ pub mod expressions {
         let string = select! {Token::LiteralString(s) => Expression::Value(Value::String(s))}
             .labelled("String");
         let span = select! {Token::Span(s) => Expression::Value(Value::Span(s.start, s.end))};
+        let delim_block = extra_delimited(block.clone());
 
         // The recursive expression Part
         recursive(|expression| {
@@ -40,10 +41,10 @@ pub mod expressions {
                 let atom = choice((ident.map(Expression::Ident), number, bool, string, span))
                     .map_with(|expr, span| (expr, span.span()))
                     // Atoms can also just be normal expressions, but surrounded with parentheses
-                    .or(block.clone().labelled("ExpressionBlock").as_context())
-                    .or(extra_delimited::<_, Spanned<Expression>>(
-                        expression.clone(),
-                    ))
+                    .or(delim_block.clone().labelled("ExpressionBlock").as_context())
+                    // .or(extra_delimited::<_, Spanned<Expression>>(
+                    //     expression.clone(),
+                    // ))
                     // Attempt to recover anything that looks like a parenthesised expression but contains errors
                     .recover_with(via_parser(nested_delimiters(
                         Token::Lparen,
@@ -226,7 +227,7 @@ pub mod expressions {
                 })
                 .labelled("if *expression*")
                 .as_context();
-            choice((inline_expression, if_))
+            choice((inline_expression, if_, extra_delimited(expression)))
         })
     }
     fn atom_parser<'tokens, 'src: 'tokens, T>(

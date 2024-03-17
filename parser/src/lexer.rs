@@ -127,8 +127,6 @@ pub enum Token {
     #[token("!|")]
     #[token("xor")]
     Xor,
-    #[token("_")]
-    PathSeperator,
     /// }
     #[token("}")]
     Rbracket,
@@ -257,7 +255,7 @@ impl_display!(Token, |s: &Token| {
         Token::Or => "|| or".to_string(),
         Token::And => "&& and".to_string(),
         Token::Xor => "!|".to_string(),
-        Token::PathSeperator => "_".to_string(),
+        // Token::PathSeperator => "_".to_string(),
         Token::Rbracket => "]".to_string(),
         Token::Rparen => ")".to_string(),
         Token::Semicolon => ";".to_string(),

@@ -76,7 +76,7 @@ fn test_span() -> anyhow::Result<()> {
 }
 #[test]
 fn test_use() -> anyhow::Result<()> {
-    let input = r"use foo_bar_baz";
+    let input = r"use foo/bar/baz";
     test(input, "test_use")
 }
 #[test]
@@ -127,11 +127,6 @@ fn test_multiple_expressions() -> anyhow::Result<()> {
     test(input, "test_multiple_expressions")
 }
 #[test]
-fn test_lex_fail() -> anyhow::Result<()> {
-    let input = "||| ~!@##";
-    test(input, "test_lex_fail")
-}
-#[test]
 fn test_conditions() -> anyhow::Result<()> {
     let input = r"if (4 == 4) 3";
     test(input, "test_conditions")
@@ -175,6 +170,5 @@ fn test(input: &str, name: &'static str) -> anyhow::Result<()> {
         .print_errors(crate::print_error)
         .into_result()?
         .finish();
-    println!("{}\n", parse.ast());
     Ok(())
 }

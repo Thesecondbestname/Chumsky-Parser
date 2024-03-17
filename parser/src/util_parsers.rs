@@ -29,7 +29,7 @@ pub fn type_parser<'tokens, 'src: 'tokens>() -> impl Parser<
     recursive(|r#type| {
         let path = ident_parser()
             .map_with(|a, ctx| (a, ctx.span()))
-            .separated_by(just(Token::PathSeperator))
+            .separated_by(just(Token::Div))
             .collect()
             .map(ast::Path)
             .map_with(|a, ctx| Type::Path((a, ctx.span())));

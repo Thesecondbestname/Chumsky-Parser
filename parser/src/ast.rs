@@ -219,7 +219,7 @@ crate::impl_display!(Expression, |s: &Expression| {
         Expression::MethodCall(on, name, args) => {
             format!("call ({} on {} ({args:?}) )", name, on.0)
         }
-        Expression::Block(block) => format!("\n\t{block}"),
+        Expression::Block(block) => format!("{block}"),
         Expression::If(if_) => format!("{if_}"),
         Expression::Comparison(lhs, op, rhs) => format!("({} {op:?} {})", lhs.0, rhs.0),
         Expression::Binary(a, op, b) => format!("({:?} {} {})", op, a.0, b.0),
@@ -228,11 +228,11 @@ crate::impl_display!(Expression, |s: &Expression| {
 });
 
 crate::impl_display!(Block, |s: &Block| {
-    let mut res = String::new();
-    for block in &s.0 {
-        res.push_str(&format!("{}", block.0));
+    if s.0.is_empty() {
+        return String::new();
     }
-    res
+    s.0.iter()
+        .fold(String::new(), |acc, elem| acc + &format!("{}", elem.0))
 });
 crate::impl_display!(If, |s: &If| {
     let If {
@@ -244,8 +244,10 @@ crate::impl_display!(If, |s: &If| {
 crate::impl_display!(BlockElement, |s: &BlockElement| {
     match s {
         BlockElement::Item(item) => format!("{}", item.0),
+        // HACK: THIS IS EXTREEEMELY VOLATILE it will overflow the stack if captured
         BlockElement::Statement(stmt) => format!("{}", stmt.0),
         BlockElement::SilentExpression(expr) => format!("{}", expr.0),
+        fuck => format!("BlockElement doesn't have a display impl \n{fuck:#?}"),
     }
 });
 crate::impl_display!(Item, |s: &Item| {
@@ -259,7 +261,7 @@ crate::impl_display!(Item, |s: &Item| {
             "{}({arguments:?}) -> {:?} ({})",
             name.0, return_type.0, body.0
         ),
-        Item::Import(_) => todo!(),
+        Item::Import(imp) => format!("import ({:?} {})", imp.0 .0, imp.0 .1 .0),
         Item::Enum(_) => todo!(),
         Item::Struct(_) => todo!(),
     }
@@ -273,7 +275,8 @@ crate::impl_display!(Statement, |s: &Statement| {
         Statement::Continue => format!("continue"),
         Statement::WhileLoop(_, _) => todo!(),
         Statement::Expression(e) => format!("{e}"),
-        fuck => format!("Not yet implemented {fuck} :3\n"),
+        // fuck => format!("Not yet implemented {fuck} :3\n"),
+        _ => String::new(),
     }
 });
 impl Number {
