@@ -34,7 +34,7 @@ pub enum Item {
 pub struct FunctionDeclaration {
     pub name: Spanned<String>,
     pub return_type: Spanned<Type>,
-    pub arguments: Vec<(Spanned<Type>, Spanned<String>)>,
+    pub arguments: Vec<Spanned<(Spanned<Type>, Spanned<String>)>>,
     pub body: Spanned<Expression>,
 }
 #[derive(Debug, Clone)]

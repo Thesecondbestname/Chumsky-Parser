@@ -2,7 +2,7 @@ use crate::ast::{Block, BlockElement, Expression};
 use crate::convenience_types::{Error, ParserInput, Spanned};
 use crate::item_parser::item_parser;
 use crate::lexer::{lex_sketchy_program, Lex, LexError};
-use crate::parsers::*;
+use crate::parsers::{expression_parser, statement_parser};
 use crate::span_functions::empty_span;
 use crate::util_parsers::{extra_delimited, newline};
 use crate::Token;
@@ -49,18 +49,18 @@ pub struct SketchyParser {
     parse_result: Spanned<Expression>,
 }
 #[derive(Default, Debug)]
-pub struct SketchyParserBuilder<'I, I, L, P> {
-    name: &'I str,
+pub struct SketchyParserBuilder<'i, I, L, P> {
+    name: &'i str,
     input: I,
     tokens: Option<L>,
     parse_result: P,
 }
-impl<'I, I, L: Default, P: Default> SketchyParserBuilder<'I, I, L, P> {
+impl<'i, I, L: Default, P: Default> SketchyParserBuilder<'i, I, L, P> {
     pub fn input(
         self,
         inp: impl Into<String>,
-        src_name: &'I str,
-    ) -> SketchyParserBuilder<'I, Initialized, L, P> {
+        src_name: &'i str,
+    ) -> SketchyParserBuilder<'i, Initialized, L, P> {
         SketchyParserBuilder {
             name: src_name,
             input: Initialized(inp.into()),
@@ -69,7 +69,7 @@ impl<'I, I, L: Default, P: Default> SketchyParserBuilder<'I, I, L, P> {
         }
     }
 }
-impl<'I, L, P> SketchyParserBuilder<'I, Initialized, L, P> {
+impl<'i, L, P> SketchyParserBuilder<'i, Initialized, L, P> {
     pub fn parenthesize_program(self) -> Self {
         let str = "(".to_owned() + &self.input.0 + ")";
         Self {
@@ -91,7 +91,7 @@ impl<'I, L, P> SketchyParserBuilder<'I, Initialized, L, P> {
             ..self
         }
     }
-    pub fn lex_sketchy_programm(self) -> LexResult<'I, P> {
+    pub fn lex_sketchy_programm(self) -> LexResult<'i, P> {
         LexResult(
             lex_sketchy_program(&format!("({})", self.input.0))
                 .to_result()
@@ -186,7 +186,7 @@ pub struct LexResult<'i, P>(
     anyhow::Result<SketchyParserBuilder<'i, Initialized, Lexed, P>, LexErr<'i>>,
 );
 impl<'i, P> LexResult<'i, P> {
-    /// Takes a function of fn(span, erronious_token, src, src_name)
+    /// Takes a function of fn('span', `erronious_token`, 'src', `src_name`)
     pub fn print_errors(
         self,
         formater: impl Fn(&std::ops::Range<usize>, &Token, &str, &str),

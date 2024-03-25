@@ -5,7 +5,7 @@ use crate::ast::{
 use crate::convenience_parsers::{ident_parser, separator, type_parser};
 use crate::convenience_types::{Error, ParserInput, Spanned};
 use crate::lexer::Token;
-use crate::util_parsers::newline;
+use crate::util_parsers::{newline, parameter_parser};
 
 use chumsky::prelude::*;
 
@@ -17,11 +17,17 @@ where
 {
     choice((
         fn_parser(block)
+            .then_ignore(separator())
             .map(Item::Function)
             .labelled("Function")
             .as_context(),
-        enum_parser().map(Item::Enum).labelled("Enum").as_context(),
+        enum_parser()
+            .then_ignore(separator())
+            .map(Item::Enum)
+            .labelled("Enum")
+            .as_context(),
         struct_parser()
+            .then_ignore(separator())
             .map(Item::Struct)
             .labelled("Struct")
             .as_context(),
@@ -42,26 +48,26 @@ pub fn fn_parser<'tokens, 'src: 'tokens, T>(
 where
     T: Parser<'tokens, ParserInput<'tokens, 'src>, Spanned<Expression>, Error<'tokens>> + Clone, // Statement
 {
-    let block = block.delimited_by(just(Token::Lparen), just(Token::Rparen));
-    let arguments = ident_parser()
-        .map_with(|name, ctx| -> (String, SimpleSpan) { (name, ctx.span()) })
-        .then_ignore(just(Token::Hashtag))
-        .then(type_parser())
-        .map_with(|(name, b), ctx| ((b, ctx.span()), name))
-        .separated_by(just(Token::Comma))
+    let block = block.labelled("Code block").as_context();
+    let arguments = parameter_parser()
+        .map_with(|(name, b), ctx| ((b, name), ctx.span()))
+        .separated_by(just(Token::Comma).then(separator()))
         .collect::<Vec<_>>()
         .labelled("arguments");
-    // fn = type name ":" (ident "#" type ,)* block
-    let function = type_parser()
-        .labelled("return type")
-        .map_with(|r#type, ctx| -> (Type, SimpleSpan) { (r#type, ctx.span()) })
-        .then(ident_parser())
-        .map_with(|(r#type, name), ctx| (r#type, (name, ctx.span())))
-        .then_ignore(just(Token::Colon))
+    // fn = name ":" (ident "#" type ,)*; type block
+    let function = ident_parser()
+        .map_with(|name, ctx| (name, ctx.span()))
+        .then_ignore(just(Token::Colon).then(separator()))
         .then(arguments)
+        .then_ignore(just(Token::Semicolon))
+        .then(
+            type_parser()
+                .map_with(|r#type, ctx| -> (Type, SimpleSpan) { (r#type, ctx.span()) })
+                .labelled("return type"),
+        )
         .then(block.clone())
         .map(
-            |(((return_type, name), arguments), block)| FunctionDeclaration {
+            |(((name, arguments), return_type), block)| FunctionDeclaration {
                 name,
                 return_type,
                 arguments,
@@ -145,7 +151,7 @@ pub fn import_parser<'tokens, 'src: 'tokens>(
             ident
                 .clone()
                 // TODO: Use path separator
-                .then_ignore(just(Token::Div))
+                .then_ignore(just(Token::Slash))
                 .map_with(|module, ctx| (module, ctx.span()))
                 .repeated()
                 .collect(),

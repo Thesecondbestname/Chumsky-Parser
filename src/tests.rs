@@ -1,5 +1,4 @@
 use ariadne::{ColorGenerator, Label, Report, ReportKind, Source};
-use colored::Colorize;
 use parser::SketchyParser;
 #[test]
 fn test_basic_lex() -> anyhow::Result<()> {
@@ -14,9 +13,10 @@ fn test_basic_lex() -> anyhow::Result<()> {
         lmao# int,
         lmao2# int
     ;
-    int add: x# int, y# int (
+    add: x#int, y#int; int (
         x + y
-    // Some kinda idk  
+    )
+    // Somekinda idk  
     add (4,5). sqrt:3
     
     if x == 4  (
@@ -40,6 +40,11 @@ fn test_method_calls() -> anyhow::Result<()> {
     test(input, "test_method_calls")
 }
 #[test]
+fn test_enum_construction() -> anyhow::Result<()> {
+    let input = "Some(24)";
+    test(input, "test_enum_construction")
+}
+#[test]
 fn test_loops() -> anyhow::Result<()> {
     let input = "loop (
         a = 5
@@ -60,11 +65,11 @@ fn test_continue() -> anyhow::Result<()> {
 }
 #[test]
 fn test_function_definitions() -> anyhow::Result<()> {
-    let input = "int draw: 
+    let input = "draw: 
     state #SnekGame, 
     frame #Canvas, 
-    window #Window( 
-         a-3
+    window #Window; int( 
+         a-4 *3
     )";
     test(input, "test_function_definitions")
 }

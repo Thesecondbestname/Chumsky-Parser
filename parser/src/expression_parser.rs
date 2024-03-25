@@ -41,7 +41,7 @@ pub mod expressions {
                 let atom = choice((ident.map(Expression::Ident), number, bool, string, span))
                     .map_with(|expr, span| (expr, span.span()))
                     // Atoms can also just be normal expressions, but surrounded with parentheses
-                    .or(delim_block.clone().labelled("ExpressionBlock").as_context())
+                    .or(delim_block.clone().labelled("Expression Block").as_context())
                     // .or(extra_delimited::<_, Spanned<Expression>>(
                     //     expression.clone(),
                     // ))
@@ -122,7 +122,7 @@ pub mod expressions {
                 // Product ops (multiply and divide) have equal precedence
                 let op = just(Token::Mul)
                     .to(MathOp::Mul)
-                    .or(just(Token::Div).to(MathOp::Div));
+                    .or(just(Token::Slash).to(MathOp::Div));
                 let product = method_call
                     .clone()
                     .foldl(op.then(method_call).repeated(), |a, (op, b)| {
@@ -230,132 +230,16 @@ pub mod expressions {
             choice((inline_expression, if_, extra_delimited(expression)))
         })
     }
-    fn atom_parser<'tokens, 'src: 'tokens, T>(
-        atom: T,
-        expr: T,
-    ) -> impl Parser<
-        'tokens,
-        ParserInput<'tokens, 'src>, // Input
-        Spanned<Expression>,        // Output
-        Error<'tokens>,             // Error Type
-    > + Clone
-    where
-        T: Parser<'tokens, ParserInput<'tokens, 'src>, Spanned<Expression>, Error<'tokens>>
-            + Clone
-            + 'tokens,
-    {
-        let binary_math = |associativity, token, op| {
-            infix::<_, _, Token, Spanned<Expression>>(
-                associativity,
-                just::<Token, ParserInput, Error>(token).boxed(),
-                move |l, r,ctx: &'static mut chumsky::input::MapExtra<'_, '_, ParserInput, Error>| -> Spanned<Expression> {
-                    (
-                        Expression::MathOp(Box::new(l), op, Box::new(r)),
-                        ctx.span()
-                    )
-                },
-            )
-        };
-        let binary_comp = |associativity, token: Token, op| {
-            infix::<_, _, ComparisonOp, Spanned<Expression>>(
-                associativity,
-                just::<_, ParserInput, Error>(token),
-                move |l, r, ctx: &'static mut chumsky::input::MapExtra<'_, '_, ParserInput, Error>| -> Spanned<Expression >{
-                    (
-                        Expression::Comparison(Box::new(l), op, Box::new(r)),
-                        ctx.span()
-                    )
-                },
-            )
-        };
-        let binary = |associativity, token: Token, op: BinaryOp| {
-            infix::<_, _, BinaryOp, Spanned<Expression>>(
-                associativity,
-                just::<Token, ParserInput<'tokens, 'src>, Error<'tokens>>(token).boxed(),
-                move |l, r, ctx: &'static mut chumsky::input::MapExtra<'_, '_, ParserInput, Error>| -> Spanned<Expression >
-                { 
-                    (
-                        Expression::Binary(Box::new(l), op, Box::new(r)),
-                        ctx.span()
-                    ) 
-                },
-            )
-        };
-        // https://doc.rust-lang.org/stable/reference/expressions.html#expression-precedence
-        let atom2 = Parser::boxed(atom.clone()).pratt((
-            // field ::= atom "." ident
-            postfix::<_, _, Token, Spanned<Expression>>(
-                8,
-                just(Token::Period)
-                    .ignore_then(crate::util_parsers::ident_parser().map(String::from))
-                    .map_with(|field, ctx| (field, ctx.span())).boxed(),
-                |l , field: Spanned<String>, ctx: &'static mut chumsky::input::MapExtra<'_, '_, ParserInput, Error> | {
-                    (
-                        Expression::FieldAccess(Box::new(l), field),
-                        ctx.span()
-                    )
-                },
-            ),
-            // call ::= field "(" (expr ("," expr)*)? ")"
-            postfix::<_, _, Token, Spanned<Expression>>(
-                7,
-                expr
-                    .separated_by(just(Token::Comma))
-                    .collect::<Vec<Spanned<Expression>>>()
-                    .map_with(|args, ctx| (args, ctx.span()))
-                    .delimited_by(just(Token::Lparen), just(Token::Rparen)),
-                |l, args: Spanned<Vec<Spanned<Expression>>>, ctx: &'static mut chumsky::input::MapExtra<'_, '_, ParserInput, Error> | {
-                    (
-                        Expression::FunctionCall(Box::new(l), args.0),
-                        ctx.span()
-                    )
-                },
-            ),
-            // unary ::= ("!") call
-            prefix::<_, _, Token, Spanned<Expression>>(
-                6,
-                just::<Token, ParserInput<'tokens, 'src>, Error<'tokens>>(Token::Bang).ignored(),
-                | r, ctx: &'static mut chumsky::input::MapExtra<'_, '_, ParserInput, Error> | {
-                    (
-                        Expression::UnaryBool(Box::new(r)),
-                        ctx.span()
-                    )
-                },
-            ),
-            // unary ::= ("-") call
-            prefix::<_, _, Token, Spanned<Expression>>(
-                6,
-                just::<Token, ParserInput<'tokens, 'src>, Error<'tokens>>(Token::Minus).ignored(),
-                |r, ctx: &'static mut chumsky::input::MapExtra<'_, '_, ParserInput, Error> | {
-                    (
-                        Expression::UnaryMath(Box::new(r)),
-                        ctx.span()
-                    )
-                },
-            ),
-            // mul_div ::= unary ("*" | "/") unary
-            binary_math(left(5), Token::Mul, MathOp::Mul),
-            binary_math(left(5), Token::Div, MathOp::Div),
-            // add_sub ::= mul_div ("+" | "-") mul_div
-            binary_math(left(4), Token::Plus, MathOp::Add),
-            binary_math(left(4), Token::Minus, MathOp::Sub),
-            // compare ::= add_sub ("==" | "!=" | "<" | "<=" | ">" | ">=") add_sub
-            binary_comp(left(3), Token::Eq, ComparisonOp::Eq),
-            binary_comp(left(3), Token::Neq, ComparisonOp::Neq),
-            binary_comp(left(3), Token::Lt, ComparisonOp::Lt),
-            binary_comp(left(3), Token::Lte, ComparisonOp::Lte),
-            binary_comp(left(3), Token::Gt, ComparisonOp::Gt),
-            binary_comp(left(3), Token::Gte, ComparisonOp::Gte),
-            // additional comparisons
-            binary(left(2), Token::And, BinaryOp::And),
-            binary(left(2), Token::Or, BinaryOp::Or),
-            binary(left(2), Token::Xor, BinaryOp::Xor),
-            // // break ::= "break" basic
-            // prefix(0, just(Token::Break), |r| Expression::Break(Box::new(r))),
-            // // return_value ::= "return" basic
-            // prefix(0, just(Token::Return), |r| Expression::Return(Box::new(r))),
-        ));
-        atom
-    }
+    // pub fn pattern<'tokens, 'src: 'tokens, T>(
+    // ) -> impl Parser<
+    //     'tokens,
+    //     ParserInput<'tokens, 'src>, // Input
+    //     Spanned<Expression>,        // Output
+    //     Error<'tokens>,             // Error Type
+    // > + Clone
+    // {
+               
+    // }
+
 }
 

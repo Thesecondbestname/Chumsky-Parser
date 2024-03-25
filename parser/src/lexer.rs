@@ -37,7 +37,7 @@ impl LexResult {
 }
 
 #[derive(Logos, Debug, PartialEq, Clone)]
-#[logos(skip r"[ \t\f]+|(?://*|/\*[\s\S]*\*/)")]
+#[logos(skip r"[ \t\f]+|(?://.*|/\*[\s\S]*\*/)")]
 pub enum Token {
     #[token("+")]
     Plus,
@@ -58,7 +58,7 @@ pub enum Token {
     #[token("#")]
     Hashtag,
     #[token("/")]
-    Div,
+    Slash,
     #[token("else")]
     Else,
     #[token("continue")]
@@ -76,6 +76,10 @@ pub enum Token {
     Const,
     #[token("==")]
     Eq,
+    #[token("on")]
+    On,
+    #[token("match")]
+    Match,
     #[token("false")]
     False,
     #[token("<")]
@@ -94,9 +98,9 @@ pub enum Token {
     Import,
     #[token("{")]
     Lbracket,
-    #[regex(r"-?[0-9]+", |lex| lex.slice().parse::<i64>().unwrap(), priority=2)]
+    #[regex(r"[0-9]+", |lex| lex.slice().parse::<i64>().unwrap(), priority=2)]
     Integer(i64),
-    #[regex(r"-?[0-9]+\.[0-9]+", |lex| lex.slice().parse::<f64>().unwrap())]
+    #[regex(r"[0-9]+\.[0-9]+", |lex| lex.slice().parse::<f64>().unwrap())]
     r#Float(f64),
     #[token("loop")]
     Loop,
@@ -226,7 +230,7 @@ impl_display!(Token, |s: &Token| {
         Token::DoubleColon => "::".to_string(),
         Token::Comma => ",".to_string(),
         Token::Hashtag => "#".to_string(),
-        Token::Div => "/".to_string(),
+        Token::Slash => "/".to_string(),
         Token::Else => "else".to_string(),
         Token::Continue => "continue".to_string(),
         Token::Break => "break".to_string(),
@@ -255,7 +259,6 @@ impl_display!(Token, |s: &Token| {
         Token::Or => "|| or".to_string(),
         Token::And => "&& and".to_string(),
         Token::Xor => "!|".to_string(),
-        // Token::PathSeperator => "_".to_string(),
         Token::Rbracket => "]".to_string(),
         Token::Rparen => ")".to_string(),
         Token::Semicolon => ";".to_string(),
@@ -268,5 +271,7 @@ impl_display!(Token, |s: &Token| {
         Token::Nothing => "Noting".to_string(),
         Token::Lte => "<=".to_string(),
         Token::Gte => ">=".to_string(),
+        Token::On => "on".to_owned(),
+        Token::Match => "match".to_owned(),
     }
 });

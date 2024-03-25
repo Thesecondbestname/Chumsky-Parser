@@ -1,5 +1,3 @@
-ollama run codellama:7b-code '
-Here is a code sample of the teddy language:
   enum Direction: Up, Right, Left, Down;
 	// to retain a syntactical consistency the : denotes the begin of structured data, separated by commas,
 	// while # separates a variable from its type
@@ -23,12 +21,3 @@ Here is a code sample of the teddy language:
           )
       ;
   ;
-  And here is the EBNF grammar that is used to parse the teddy language into an AST:
-  <programm> ::= <block>
-  <block> ::= <declaration> | <statement>
-  <declaration> ::= <import> | <enum> | <struct> | <trait> | <fn>
-  <statement> ::= <assignment> | <return> | <if> | <match>
-  <return> ::= "return" <expression>
-  <fn> ::= <ident> ":" <param> ("," <param>)* "#" <type>
-'
-

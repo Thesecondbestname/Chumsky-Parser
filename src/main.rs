@@ -60,12 +60,18 @@ fn main() -> anyhow::Result<()> {
 }
 fn print_error(error: &OutputError, ast: &OutputType, input: &str, src_name: &str) {
     let span = error.span();
-    let expected = error
-        .expected()
-        .map(|a| format!("{a:#?} "))
-        .collect::<Vec<_>>()
-        .concat();
     let found = error.found().unwrap_or(&parser::Token::Nothing);
+    let note = if error.expected().next().is_none() {
+        format!("Unexpected Token \"{found}\"")
+    } else {
+        let expected = error
+            .expected()
+            .map(|a| format!("{a:#?} "))
+            .collect::<Vec<_>>()
+            .concat();
+        format!("Expected {expected} but found {found}")
+    };
+
     let empty_span = parser::span_functions::span_from(span.start);
     eprintln!("[DEBUG]\n\n{}", ast.0);
     let context = error
@@ -82,7 +88,7 @@ fn print_error(error: &OutputError, ast: &OutputType, input: &str, src_name: &st
                 .with_message(format!("found {found:?}",))
                 .with_color(Color::Red),
         )
-        .with_note(format!("Expected one of {expected} but found {found}"))
+        .with_note(note)
         .finish()
         .eprint((src_name, Source::from(input)));
 }

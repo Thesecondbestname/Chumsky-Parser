@@ -1,18 +1,17 @@
 const boardsize = 20
 type coordinate = (0..boardsize, 0..boardsize)
-use std:graphics:prelude:*
+import std/graphics/prelude/*
 
 
-struct# SnekGame:
-    coordinate# apple,
-    [boardsize, [boardsize, bool]]# snek 
-    Direction# direction 
+struct SnekGame:
+    apple# coordinate,
+    snek# [boardsize, [boardsize, bool]] 
+    direction# Direction 
     coordinate#head,
     int# length 
      
     impl:
-        #update: 
-            self, 
+        #update: self; 
         (
             if self.apple == self.head (
                 self.length += 1
@@ -21,35 +20,36 @@ struct# SnekGame:
                 self.game_over
             )
             self.snek[self.head.0[self.head.1]] = true
-            match self.direction:
-                Up = head.1++,
-                Down = head.1--,
-                Right = head.0++,
-                Left = head.0
+            match self.direction on
+                Direction/Up -> head.1++,
+                Direction/Down -> head.1--,
+                Direction/Right -> head.0++,
+                Direction/Left -> head.0
             ;
         )
 	;
 ;
-    
-#main: (
-    window = Window__new
+
+main:;(
+    window = Window/new
         .title("snek")
         .fixed_size(500, 500)
     frame = Canvas/new
         .coordinates(boardsize, boardsize).seal()
-    game_state = SnekGame: 
-            (std_rnd, std__rnd), 
+    game_state = SnekGame { 
+            (std/rnd, std/rnd), 
             [boardsize^2; bool],
-            Direction__default(),
-            (10, 10)
-        ;
+            Direction/default(),
+            (10, 10),
+        }
     loop (
         events = window.update().events()
-        if events.0 matches:
-            Some(Key__Left) -> (game_state.direction = Direction__Left),
-            Some(Key__Right) -> (game_state.direction = Direction__Right),
-            Some(Key__Up) -> (game_state.direction = Direction__Up)
-            Some(Key__Down) -> (game_state.direction = Direction__Down)
+        game_state.direction = 
+            match events.0 on
+                Some(Key/Left) -> (Direction/Left),
+                Some(Key/Right) -> (Direction/Right),
+                Some(Key/Up) -> (Direction/Up)
+                Some(Key/Down) -> (Direction/Down)
             ;
         draw(game_state.update())
         

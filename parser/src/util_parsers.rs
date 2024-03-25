@@ -1,5 +1,5 @@
 use crate::ast::{self, Type};
-use crate::convenience_types::{Error, ParserInput};
+use crate::convenience_types::{Error, ParserInput, Spanned};
 use crate::Token;
 use chumsky::prelude::*;
 
@@ -29,7 +29,7 @@ pub fn type_parser<'tokens, 'src: 'tokens>() -> impl Parser<
     recursive(|r#type| {
         let path = ident_parser()
             .map_with(|a, ctx| (a, ctx.span()))
-            .separated_by(just(Token::Div))
+            .separated_by(just(Token::Slash))
             .collect()
             .map(ast::Path)
             .map_with(|a, ctx| Type::Path((a, ctx.span())));
@@ -54,13 +54,14 @@ pub fn type_parser<'tokens, 'src: 'tokens>() -> impl Parser<
 }
 pub fn parameter_parser<'tokens, 'src: 'tokens>() -> impl Parser<
     'tokens,
-    ParserInput<'tokens, 'src>, // Input
-    (Type, String),             // Output
-    Error<'tokens>,             // Error Type
+    ParserInput<'tokens, 'src>,       // Input
+    (Spanned<String>, Spanned<Type>), // Output
+    Error<'tokens>,                   // Error Type
 > + Clone {
-    type_parser()
+    ident_parser()
+        .map_with(|name, ctx| (name, ctx.span()))
         .then_ignore(just(Token::Hashtag))
-        .then(ident_parser())
+        .then(type_parser().map_with(|type_, ctx| (type_, ctx.span())))
 }
 
 pub fn extra_delimited<'tokens, 'src: 'tokens, T, U>(
@@ -76,7 +77,7 @@ where
 {
     idk.delimited_by(
         just(Token::Lparen).delimited_by(separator(), separator()),
-        just(Token::Rparen).delimited_by(separator(), separator()),
+        separator().then(just(Token::Rparen)),
     )
 }
 pub fn newline<'tokens, 'src: 'tokens>() -> impl Parser<

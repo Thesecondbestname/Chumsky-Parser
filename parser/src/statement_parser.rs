@@ -59,7 +59,7 @@ where
         let assignment = ident_parser()
             .then_ignore(just(Token::Assign))
             .then(expr.clone())
-            // TODO: TEST IF THIS RESULTS IN ERRONIOUS PARSING
+            // TODO: TEST IF COMMENTING OUT THIS LINE RESULTS IN ERRONIOUS PARSING
             // .then_ignore(choice((just(Token::Newline).ignored(), end())))
             .map_with(|(name, val), ctx| -> (Statement, SimpleSpan) {
                 (
@@ -79,7 +79,6 @@ where
             break_.map_with(|stmnt: Statement, ctx| (stmnt, ctx.span())),
             return_.map_with(|stmnt: Statement, ctx| (stmnt, ctx.span())),
             expr.map(|(expr, span)| (Statement::Expression(expr), span)),
-            // if_.map_with(|stmnt: Statement, ctx| (stmnt, ctx.span())),
             // TODO: Add recovery here in case user forgets the stmt cast
         ))
     };
