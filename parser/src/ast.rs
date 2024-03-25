@@ -61,8 +61,8 @@ pub struct StructDeclaration {
 }
 #[derive(Debug, Clone)]
 pub struct StructField {
-    pub name: String,
-    pub r#type: Type,
+    pub name: Spanned<String>,
+    pub r#type: Spanned<Type>,
 }
 #[derive(Debug, Clone)]
 pub enum Statement {

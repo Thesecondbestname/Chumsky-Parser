@@ -85,6 +85,42 @@ impl<'i, L, P> SketchyParserBuilder<'i, Initialized, L, P> {
             prev = ch;
             result
         });
+        eprintln!("{new_str}");
+        Self {
+            input: Initialized(new_str),
+            ..self
+        }
+    }
+    pub fn remove_empty_lines(self) -> Self {
+        let new_str = self
+            .input
+            .0
+            .split('\n')
+            .filter(|splice| splice.to_owned() == " ")
+            .collect::<Vec<_>>()
+            .join("\n");
+        eprintln!("{new_str}");
+        Self {
+            input: Initialized(new_str),
+            ..self
+        }
+    }
+    pub fn replace_tabs_with_spaces(self) -> Self {
+        let new_str = self.input.0.replace('\t', " ");
+        eprintln!("{new_str}");
+        Self {
+            input: Initialized(new_str),
+            ..self
+        }
+    }
+    pub fn remove_duplicate_whitespace(self) -> Self {
+        let mut new_str = self.input.0.trim().to_owned();
+        let mut prev = ' ';
+        new_str.retain(|ch| {
+            let result = ch != ' ' || prev != ' ';
+            prev = ch;
+            result
+        });
         println!("{new_str}");
         Self {
             input: Initialized(new_str),

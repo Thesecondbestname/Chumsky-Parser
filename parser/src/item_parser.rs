@@ -82,10 +82,7 @@ pub fn struct_parser<'tokens, 'src: 'tokens>() -> impl Parser<
     Spanned<StructDeclaration>, // Output
     Error<'tokens>,             // Error Type
 > + Clone {
-    let struct_field = ident_parser()
-        .clone()
-        .then_ignore(just(Token::Hashtag).labelled("#"))
-        .then(type_parser())
+    let struct_field = parameter_parser()
         .map_with(|(name, r#type), ctx| (StructField { name, r#type }, ctx.span()))
         .labelled("struct declaration field");
 

@@ -16,7 +16,7 @@ fn test_basic_lex() -> anyhow::Result<()> {
     add: x#int, y#int; int (
         x + y
     )
-    // Somekinda idk  
+    // Some kinda idk  
     add (4,5). sqrt:3
     
     if x == 4  (
@@ -156,7 +156,10 @@ fn test(input: &str, name: &'static str) -> anyhow::Result<()> {
     let a = colors.next();
     let parse = SketchyParser::builder()
         .input(input, name)
+        .replace_tabs_with_spaces()
+        .remove_duplicate_whitespace()
         .remove_duplicate_newline()
+        .remove_empty_lines()
         .lex_sketchy_programm()
         .print_errors(|span, token, input, name| {
             Report::build(ReportKind::Error, name, 12)
