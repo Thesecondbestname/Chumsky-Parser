@@ -1,5 +1,5 @@
-use crate::ast::{Expression, If, Statement, Value};
-use crate::convenience_parsers::ident_parser;
+use crate::ast::{Expression, Statement, Value};
+use crate::convenience_parsers::name_parser;
 use crate::convenience_types::{Error, ParserInput, Spanned};
 use crate::lexer::Token;
 use crate::util_parsers::newline;
@@ -56,7 +56,7 @@ where
             .as_context();
 
         // assignment => ident "=" expr
-        let assignment = ident_parser()
+        let assignment = name_parser()
             .then_ignore(just(Token::Assign))
             .then(expr.clone())
             // TODO: TEST IF COMMENTING OUT THIS LINE RESULTS IN ERRONIOUS PARSING

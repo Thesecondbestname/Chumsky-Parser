@@ -40,7 +40,7 @@ mod parsers {
     };
 }
 mod convenience_parsers {
-    pub use super::util_parsers::{ident_parser, separator, type_parser};
+    pub use super::util_parsers::{name_parser, separator, type_parser};
 }
 #[cfg(test)]
 mod tests {}

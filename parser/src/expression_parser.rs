@@ -2,9 +2,8 @@
 pub mod expressions {
     use crate::ast::{BinaryOp, ComparisonOp, Expression, If, MathOp, Number, Value};
     use crate::convenience_types::{Error, ParserInput, Spanned};
-    use crate::util_parsers::extra_delimited;
+    use crate::util_parsers::{extra_delimited, ident_parser, name_parser};
     use crate::Token;
-    use chumsky::pratt::{infix, left, postfix, prefix};
     use chumsky::prelude::*;
 
     pub fn expression_parser<'tokens, 'src: 'tokens, T>(
@@ -19,8 +18,8 @@ pub mod expressions {
         T: Parser<'tokens, ParserInput<'tokens, 'src>, Spanned<Expression>, Error<'tokens>>
             + Clone
             + 'tokens,
-        {
-        let ident = select! { Token::Ident(ident) => ident }.labelled("Identifier/ Name");
+    {
+        let ident = ident_parser();
         let int = select! { Token::Integer(v) => v }.labelled("Whole AAh integer");
         let float = select! { Token::Float(v) => v }.labelled("Floating point");
         let number = int
@@ -38,27 +37,35 @@ pub mod expressions {
         recursive(|expression| {
             let inline_expression = {
                 // Atom which is the smallest expression.
-                let atom = choice((ident.map(Expression::Ident), number, bool, string, span))
-                    .map_with(|expr, span| (expr, span.span()))
-                    // Atoms can also just be normal expressions, but surrounded with parentheses
-                    .or(delim_block.clone().labelled("Expression Block").as_context())
-                    // .or(extra_delimited::<_, Spanned<Expression>>(
-                    //     expression.clone(),
-                    // ))
-                    // Attempt to recover anything that looks like a parenthesised expression but contains errors
-                    .recover_with(via_parser(nested_delimiters(
-                        Token::Lparen,
-                        Token::Rparen,
-                        [(Token::Lbracket, Token::Rbracket)],
-                        |span| (Expression::ParserError, span),
-                    )))
-                    .labelled("Atom")
-                    .as_context();
+                let atom = choice((
+                    ident.clone().map(Expression::Ident),
+                    number,
+                    bool,
+                    string,
+                    span,
+                ))
+                .map_with(|expr, span| (expr, span.span()))
+                // Atoms can also just be normal expressions, but surrounded with parentheses
+                .or(delim_block
+                    .clone()
+                    .labelled("Expression Block")
+                    .as_context())
+                // .or(extra_delimited::<_, Spanned<Expression>>(
+                //     expression.clone(),
+                // ))
+                // Attempt to recover anything that looks like a parenthesised expression but contains errors
+                .recover_with(via_parser(nested_delimiters(
+                    Token::Lparen,
+                    Token::Rparen,
+                    [(Token::Lbracket, Token::Rbracket)],
+                    |span| (Expression::ParserError, span),
+                )))
+                .labelled("Atom")
+                .as_context();
                 // A list of expressions
                 let items = expression
                     .clone()
-                    .separated_by(just(Token::Comma)
-                    )                     
+                    .separated_by(just(Token::Comma))
                     .allow_trailing()
                     .collect::<Vec<_>>()
                     .labelled("a list of expressions");
@@ -81,9 +88,7 @@ pub mod expressions {
                     .clone()
                     .foldl(
                         list.clone()
-                            .map_with(|expr, span| {
-                                (expr, span.span())
-                            })
+                            .map_with(|expr, span| (expr, span.span()))
                             .repeated(),
                         |func, args| {
                             let span = SimpleSpan::new(func.1.start, args.1.end);
@@ -95,16 +100,15 @@ pub mod expressions {
                     .clone()
                     .foldl(
                         just(Token::Period)
-                            .ignore_then(ident)
+                            .ignore_then(ident.clone())
                             .then(list.clone().or_not())
                             .repeated(),
-                        |func: Spanned<Expression>, (name, args): (String, Option<Vec<Spanned<Expression>>>)| {
-                            let spanend = 
-                                if args.clone().is_some_and(|x| x.last().is_some()) {
-                                    args.clone().unwrap().last().unwrap().1.end
-                                } else {
-                                    func.1.end
-                                };
+                        |func: Spanned<Expression>, (name, args)| {
+                            let spanend = if args.clone().is_some_and(|x| x.last().is_some()) {
+                                args.clone().unwrap().last().unwrap().1.end
+                            } else {
+                                func.1.end
+                            };
 
                             let span = func.1.start..spanend;
                             (
@@ -149,20 +153,18 @@ pub mod expressions {
                     })
                     .labelled("sum");
 
-                let else_expression = sum.clone().foldl(
-                    just(Token::Else)
-                    .ignore_then(block.clone()).repeated(),
-                    |expr, else_branch|{
-                        let span = expr.1.start()..else_branch.1.end();
-                        (
-                            Expression::Else(
-                                Box::new(expr),
-                                Box::new(else_branch),
-                            ), 
-                            span.into()
-                        )
-                    }
-                )
+                let else_expression = sum
+                    .clone()
+                    .foldl(
+                        just(Token::Else).ignore_then(block.clone()).repeated(),
+                        |expr, else_branch| {
+                            let span = expr.1.start()..else_branch.1.end();
+                            (
+                                Expression::Else(Box::new(expr), Box::new(else_branch)),
+                                span.into(),
+                            )
+                        },
+                    )
                     .labelled("if else");
 
                 let logical = {
@@ -202,6 +204,16 @@ pub mod expressions {
                 }; // Comparison ops (equal, not-equal) have equal precedence
                 comp.labelled("Atom").as_context().boxed()
             };
+            let struct_construction = ident
+                .then(
+                    name_parser()
+                        .then_ignore(just(Token::Eq))
+                        .then(expression.clone())
+                        .separated_by(just(Token::Colon))
+                        .collect::<Vec<_>>()
+                        .delimited_by(just(Token::Lbracket), just(Token::Rbracket)),
+                )
+                .map_with(|(a, b): (crate::ast::Ident, _), ctx| (a, ctx.span()));
             // if => "if" expr block
             let if_ = just(Token::If)
                 .ignore_then(expression.clone())
@@ -217,13 +229,13 @@ pub mod expressions {
                 )))
                 .then(block.clone())
                 .map_with(|(condition, code_block), ctx| {
-                    (Expression::If(
-                        Box::new(If {
+                    (
+                        Expression::If(Box::new(If {
                             condition: Box::new(condition),
                             code_block,
-                        }),
-                    ),
-                        ctx.span())
+                        })),
+                        ctx.span(),
+                    )
                 })
                 .labelled("if *expression*")
                 .as_context();
@@ -238,8 +250,6 @@ pub mod expressions {
     //     Error<'tokens>,             // Error Type
     // > + Clone
     // {
-               
+
     // }
-
 }
-

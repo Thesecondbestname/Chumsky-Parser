@@ -40,6 +40,11 @@ fn test_method_calls() -> anyhow::Result<()> {
     test(input, "test_method_calls")
 }
 #[test]
+fn test_paths() -> anyhow::Result<()> {
+    let input = "std::core::rnd(crate::here::info)";
+    test(input, "test_paths")
+}
+#[test]
 fn test_enum_construction() -> anyhow::Result<()> {
     let input = "Some(24)";
     test(input, "test_enum_construction")

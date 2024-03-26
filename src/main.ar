@@ -21,36 +21,36 @@ struct SnekGame:
             )
             self.snek[self.head.0[self.head.1]] = true
             match self.direction on
-                Direction/Up -> head.1++,
-                Direction/Down -> head.1--,
-                Direction/Right -> head.0++,
-                Direction/Left -> head.0
+                Direction::Up -> head.1++,
+                Direction::Down -> head.1--,
+                Direction::Right -> head.0++,
+                Direction::Left -> head.0
             ;
         )
 	;
 ;
 
 main:;(
-    window = Window/new
+    window = Window::new
         .title("snek")
         .fixed_size(500, 500)
-    frame = Canvas/new
+    frame = Canvas::new
         .coordinates(boardsize, boardsize).seal()
-    game_state = SnekGame { 
-            (std/rnd, std/rnd), 
+    game_state = SnekGame: 
+            board = (std::rnd, std::rnd), 
             [boardsize^2; bool],
-            Direction/default(),
+            Direction::default(),
             (10, 10),
-        }
+        ;
     loop (
         events = window.update().events()
         game_state.direction = 
             match events.0 on
-                Some(Key/Left) -> (Direction/Left),
-                Some(Key/Right) -> (Direction/Right),
-                Some(Key/Up) -> (Direction/Up)
-                Some(Key/Down) -> (Direction/Down)
-            ;
+                Some(Key::Left) -> Direction::Left,
+                Some(Key::Right) -> Direction::Right,
+                Some(Key::Up) -> Direction::Up
+                Some(Key::Down) -> Direction::Down
+           ;
         draw(game_state.update())
         
     )
@@ -86,55 +86,3 @@ enum Direction:
 ;
 
 
-Statement [
-    const [Boardsize, int, 20]
-]
-Statement [
-    type [
-        coordinate,
-        Tuple [
-            Range [ 20, Boardsize]
-            Range [ 20, Boardsize]
-        ]
-    ]
-]
-Statement [
-    import [
-        Vec [
-            std,
-            graphics,
-            prelude,
-            *
-        ]
-    ]
-]
-Statement [
-    enum_decl [
-        name: Direction,
-        variants: Up, Down, Left, Right
-        impl [
-            trait [
-                default,
-                function [
-                    Self,
-                    default,
-                    Expression [
-
-        ]
-    ]
-]
-programm(
-    items(stmt(expression))
-)
-item(
-    struct
-    enum
-    fn( expression)
-)
-expression (
-    block
-)
-block (
-    item(expression)
-    stmt(expression)
-)

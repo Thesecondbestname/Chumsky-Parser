@@ -1,15 +1,29 @@
-use crate::ast::{self, Type};
+use crate::ast::{self, Ident, Type};
 use crate::convenience_types::{Error, ParserInput, Spanned};
 use crate::Token;
 use chumsky::prelude::*;
 
-pub fn ident_parser<'tokens, 'src: 'tokens>() -> impl Parser<
+pub fn name_parser<'tokens, 'src: 'tokens>() -> impl Parser<
     'tokens,
     ParserInput<'tokens, 'src>, // Input
     String,                     // Output
     Error<'tokens>,             // Error Type
 > + Clone {
     select! { Token::Ident(ident) => ident }.labelled("Identifier/ Name")
+}
+pub fn ident_parser<'tokens, 'src: 'tokens>() -> impl Parser<
+    'tokens,
+    ParserInput<'tokens, 'src>, // Input
+    Ident,                      // Output
+    Error<'tokens>,             // Error Type
+> + Clone {
+    select! { Token::Ident(ident) => ident }
+        .map_with(|a, ctx| (a, ctx.span()))
+        .separated_by(just(Token::DoubleColon))
+        .at_least(1)
+        .collect()
+        .map(ast::Ident)
+        .labelled("Identifier/ Name")
 }
 pub fn separator<'tokens, 'src: 'tokens>() -> impl Parser<
     'tokens,
@@ -27,12 +41,7 @@ pub fn type_parser<'tokens, 'src: 'tokens>() -> impl Parser<
 > + Clone {
     let int = select! { Token::Integer(v) => v }.labelled("Whole AAh integer");
     recursive(|r#type| {
-        let path = ident_parser()
-            .map_with(|a, ctx| (a, ctx.span()))
-            .separated_by(just(Token::Slash))
-            .collect()
-            .map(ast::Path)
-            .map_with(|a, ctx| Type::Path((a, ctx.span())));
+        let path = ident_parser().map_with(|a, ctx| Type::Path((a, ctx.span())));
         let primitives = select! {Token::Type(x) => x,}.labelled("primitive type");
         let tuple = r#type
             .clone()
@@ -58,7 +67,7 @@ pub fn parameter_parser<'tokens, 'src: 'tokens>() -> impl Parser<
     (Spanned<String>, Spanned<Type>), // Output
     Error<'tokens>,                   // Error Type
 > + Clone {
-    ident_parser()
+    name_parser()
         .map_with(|name, ctx| (name, ctx.span()))
         .then_ignore(just(Token::Hashtag))
         .then(type_parser().map_with(|type_, ctx| (type_, ctx.span())))

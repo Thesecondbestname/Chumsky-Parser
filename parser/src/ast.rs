@@ -1,4 +1,3 @@
-#![allow(unused)]
 use crate::convenience_types::Spanned;
 
 #[derive(Debug, Clone)]
@@ -19,7 +18,7 @@ pub enum BlockElement {
 pub struct Block(pub Vec<Spanned<BlockElement>>);
 
 #[derive(Debug, Clone, PartialEq, Eq)]
-pub struct Path(pub Vec<Spanned<String>>);
+pub struct Ident(pub Vec<Spanned<String>>);
 
 #[derive(Debug, Clone)]
 pub enum Item {
@@ -96,10 +95,10 @@ pub struct If {
 pub enum Expression {
     ParserError,
     If(Box<If>),
-    Ident(String),
+    Ident(Ident),
     List(Vec<Self>),
     FunctionCall(Box<Spanned<Self>>, Vec<Spanned<Self>>),
-    MethodCall(Box<Spanned<Self>>, String, Vec<Spanned<Self>>),
+    MethodCall(Box<Spanned<Self>>, Ident, Vec<Spanned<Self>>),
     Block(Block),
     Value(Value),
     FieldAccess(Box<Spanned<Self>>, Spanned<String>),
@@ -130,8 +129,7 @@ pub enum Value {
     /// This is for when the enum is actually constructed
     Enum {
         name: String,
-        field: String,
-        value: Option<Box<Expression>>,
+        field: Vec<(String, Vec<(String, Expression)>)>,
     },
 }
 #[derive(Clone, Debug)]
@@ -168,7 +166,7 @@ pub enum Type {
     Tuple(Vec<Type>),
     Char,
     Span,
-    Path(Spanned<Path>),
+    Path(Spanned<Ident>),
 }
 #[derive(Debug, Clone)]
 pub enum Number {
@@ -181,15 +179,15 @@ pub struct Span {
     pub(crate) end: Number,
 }
 crate::impl_display!(Value, |s: &Value| match s {
-    Value::String(string) => format!("{string}"),
+    Value::String(string) => string.to_string(),
     Value::Number(Number::Int(int)) => format!("{int}"),
-    Value::Number(Number::Float(float)) => format!("{}", float),
+    Value::Number(Number::Float(float)) => format!("{float}"),
     Value::Array(len, vals) => format!("{{len:{} [{:?}]}}", len, vals),
-    Value::Tuple(vals) => format!("({:?})", vals),
-    Value::Char(char) => format!("'{}'", char),
-    Value::Bool(bool) => format!("{}", bool),
+    Value::Tuple(vals) => format!("({vals:?})"),
+    Value::Char(char) => format!("'{char}'"),
+    Value::Bool(bool) => format!("{bool}"),
     Value::Span(start, end) => format!("{}..{}", start, end),
-    Value::Option(val) => format!("{}?", val),
+    Value::Option(val) => format!("{val}?"),
     Value::Struct { name, fields } => format!(
         "{} {{{}}}",
         name,
@@ -199,7 +197,7 @@ crate::impl_display!(Value, |s: &Value| match s {
             .collect::<Vec<_>>()
             .join(",")
     ),
-    Value::Enum { name, field, value } => format!("{} {{{}}}", name, field),
+    _ => unimplemented!(), // Value::Enum { name, field } => format!("{} {{{}}}", name, field),
 });
 crate::impl_display!(MathOp, |s: &MathOp| match s {
     MathOp::Add => "+".to_string(),
@@ -249,6 +247,10 @@ crate::impl_display!(BlockElement, |s: &BlockElement| {
         BlockElement::SilentExpression(expr) => format!("{}", expr.0),
         fuck => format!("BlockElement doesn't have a display impl \n{fuck:#?}"),
     }
+});
+crate::impl_display!(Ident, |s: &Ident| {
+    let x = s.0.iter().map(|x| x.0.clone()).collect::<String>();
+    x
 });
 crate::impl_display!(Item, |s: &Item| {
     match s {

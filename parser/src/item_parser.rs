@@ -2,7 +2,7 @@ use crate::ast::{
     EnumDeclaration, EnumVariantDeclaration, Expression, FunctionDeclaration, Import, Item,
     StructDeclaration, StructField, Type,
 };
-use crate::convenience_parsers::{ident_parser, separator, type_parser};
+use crate::convenience_parsers::{name_parser, separator, type_parser};
 use crate::convenience_types::{Error, ParserInput, Spanned};
 use crate::lexer::Token;
 use crate::util_parsers::{newline, parameter_parser};
@@ -55,7 +55,7 @@ where
         .collect::<Vec<_>>()
         .labelled("arguments");
     // fn = name ":" (ident "#" type ,)*; type block
-    let function = ident_parser()
+    let function = name_parser()
         .map_with(|name, ctx| (name, ctx.span()))
         .then_ignore(just(Token::Colon).then(separator()))
         .then(arguments)
@@ -87,7 +87,7 @@ pub fn struct_parser<'tokens, 'src: 'tokens>() -> impl Parser<
         .labelled("struct declaration field");
 
     let r#struct = just(Token::Struct)
-        .ignore_then(ident_parser())
+        .ignore_then(name_parser())
         .then_ignore(just(Token::Colon))
         .then_ignore(separator())
         .then(
@@ -112,7 +112,7 @@ pub fn struct_parser<'tokens, 'src: 'tokens>() -> impl Parser<
 pub fn enum_parser<'tokens, 'src: 'tokens>(
 ) -> impl Parser<'tokens, ParserInput<'tokens, 'src>, Spanned<EnumDeclaration>, Error<'tokens>> + Clone
 {
-    let enum_fields = ident_parser()
+    let enum_fields = name_parser()
         .labelled("Enum field name")
         .then(
             type_parser()
@@ -125,7 +125,7 @@ pub fn enum_parser<'tokens, 'src: 'tokens>(
 
     let r#enum = just(Token::Enum)
         .labelled("Enum Token")
-        .ignore_then(ident_parser())
+        .ignore_then(name_parser())
         .labelled("Enum name")
         .then_ignore(just(Token::Colon))
         .then_ignore(separator())
@@ -142,17 +142,17 @@ pub fn enum_parser<'tokens, 'src: 'tokens>(
 
 pub fn import_parser<'tokens, 'src: 'tokens>(
 ) -> impl Parser<'tokens, ParserInput<'tokens, 'src>, Spanned<Import>, Error<'tokens>> + Clone {
-    let ident = ident_parser();
+    let ident = name_parser();
     let import = just(Token::Import)
         .ignore_then(
             ident
                 .clone()
-                // TODO: Use path separator
-                .then_ignore(just(Token::Slash))
                 .map_with(|module, ctx| (module, ctx.span()))
-                .repeated()
+                // TODO: Use path separator
+                .separated_by(just(Token::Slash))
                 .collect(),
         )
+        .then_ignore(just(Token::Slash))
         .then(ident.clone())
         .then_ignore(newline())
         .map_with(|(module, name), ctx| ((Import(module, (name, ctx.span()))), ctx.span()));
