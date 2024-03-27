@@ -81,16 +81,6 @@ pub enum Statement {
     /// An expression whose return type is ignored is a statement
     Expression(Expression),
 }
-#[derive(Debug, Clone)]
-pub struct Variable {
-    pub name: String,
-    pub value: Box<Expression>,
-}
-#[derive(Debug, Clone)]
-pub struct If {
-    pub(crate) condition: Box<Spanned<Expression>>,
-    pub(crate) code_block: Spanned<Expression>,
-}
 #[derive(Clone, Debug)]
 pub enum Expression {
     ParserError,
@@ -111,6 +101,11 @@ pub enum Expression {
     Unit,
 }
 
+#[derive(Debug, Clone)]
+pub struct If {
+    pub(crate) condition: Box<Spanned<Expression>>,
+    pub(crate) code_block: Spanned<Expression>,
+}
 #[derive(Clone, Debug)]
 /// An enum of all possible values. A type can have
 pub enum Value {
@@ -252,6 +247,15 @@ crate::impl_display!(Ident, |s: &Ident| {
         .collect::<Vec<_>>()
         .join("::");
 });
+crate::impl_display!(StructDeclaration, |s: &StructDeclaration| {
+    let fields = s
+        .fields
+        .iter()
+        .map(|x| format!("{}: {:?}", x.0.name.0.clone(), x.0.r#type.0.clone()))
+        .collect::<Vec<_>>()
+        .join(",");
+    format!("{0}, {fields}", s.name)
+});
 crate::impl_display!(Item, |s: &Item| {
     match s {
         Item::Function(FunctionDeclaration {
@@ -265,7 +269,7 @@ crate::impl_display!(Item, |s: &Item| {
         ),
         Item::Import((imp, _)) => format!("import ({:?})", imp.0),
         Item::Enum(_) => todo!(),
-        Item::Struct(_) => todo!(),
+        Item::Struct((struct_, _)) => format!("{struct_}"),
     }
 });
 crate::impl_display!(Statement, |s: &Statement| {

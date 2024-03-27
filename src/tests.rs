@@ -2,7 +2,7 @@ use ariadne::{ColorGenerator, Label, Report, ReportKind, Source};
 use parser::SketchyParser;
 #[test]
 fn test_basic_lex() -> anyhow::Result<()> {
-    let lex = r#"use io_print
+    let lex = r#"use io/print
     x = xöla
     y = 69 / (56 - 0.45)
     print(Works):3
@@ -115,7 +115,7 @@ fn test_assign() -> anyhow::Result<()> {
 #[test]
 fn test_else() -> anyhow::Result<()> {
     let input = "24 + 4 else (b)";
-    test(input, "test_assign")
+    test(input, "test_else")
 }
 #[test]
 fn test_bool_expr() -> anyhow::Result<()> {
@@ -134,7 +134,7 @@ fn test_string() -> anyhow::Result<()> {
 }
 
 #[test]
-fn test_multiple_expressions() -> anyhow::Result<()> {
+fn test_multiple_statements() -> anyhow::Result<()> {
     let input = "(
      x = 4+5
         x = 32
@@ -143,13 +143,18 @@ fn test_multiple_expressions() -> anyhow::Result<()> {
 }
 #[test]
 fn test_conditions() -> anyhow::Result<()> {
-    let input = r"if (4 == 4) 3";
+    let input = r"if (4 == 4) (3)";
     test(input, "test_conditions")
+}
+#[test]
+fn test_conditions_inverted_parens() -> anyhow::Result<()> {
+    let input = "if 4 == 4 (x = 5)";
+    test(input, "test_conditions_inverted_parens")
 }
 #[test]
 fn test_multiple_calls() -> anyhow::Result<()> {
     let input = r"lambda(3)(5).add(helo):3";
-    test(input, "test_conditions")
+    test(input, "test_multiple_calls")
 }
 #[test]
 fn test_call_string() -> anyhow::Result<()> {
@@ -165,15 +170,14 @@ fn test(input: &str, name: &'static str) -> anyhow::Result<()> {
     let mut colors = ColorGenerator::new();
     let a = colors.next();
     let parse = SketchyParser::builder()
-        .input(input, name)
-        .dbg_print_input()
+        .input(input.trim(), name)
         .lex_sketchy_programm()
         .print_errors(|span, token, input, name| {
             Report::build(ReportKind::Error, name, 12)
                 .with_message(format!("Error while lexing test {input}"))
                 .with_label(
-                    Label::new((name, span.clone()))
-                        .with_message(format!("Found unexpected Token {token:?} at {span:?}"))
+                    Label::new((name, span.start - 1..span.end - 1.clone()))
+                        .with_message(format!("Found unexpected Token {token} at {span:?}"))
                         .with_color(a),
                 )
                 .finish()
@@ -182,7 +186,6 @@ fn test(input: &str, name: &'static str) -> anyhow::Result<()> {
         })
         .into_result()?
         .remove_duplicate_newline()
-        .dbg_print_tokens()
         .parse_sketchy_programm()
         .print_errors(crate::print_error)
         .into_result()?

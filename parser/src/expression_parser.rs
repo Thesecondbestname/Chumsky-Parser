@@ -47,24 +47,20 @@ pub mod expressions {
                     string,
                     span,
                 ))
+                .labelled("Atom")
+                .as_context()
                 .map_with(|expr, span| (expr, span.span()))
-                // Atoms can also just be normal expressions, but surrounded with parentheses
                 .or(delim_block
                     .clone()
+                    // Attempt to recover anything that looks like a parenthesised expression but contains errors
+                    .recover_with(via_parser(nested_delimiters(
+                        Token::Lparen,
+                        Token::Rparen,
+                        [(Token::Lbracket, Token::Rbracket)],
+                        |span| (Expression::ParserError, span),
+                    )))
                     .labelled("Expression Block")
-                    .as_context())
-                // .or(extra_delimited::<_, Spanned<Expression>>(
-                //     expression.clone(),
-                // ))
-                // Attempt to recover anything that looks like a parenthesised expression but contains errors
-                .recover_with(via_parser(nested_delimiters(
-                    Token::Lparen,
-                    Token::Rparen,
-                    [(Token::Lbracket, Token::Rbracket)],
-                    |span| (Expression::ParserError, span),
-                )))
-                .labelled("Atom")
-                .as_context();
+                    .as_context());
                 // A list of expressions
                 let items = expression
                     .clone()
@@ -228,18 +224,34 @@ pub mod expressions {
                 });
             // if => "if" expr block
             let if_ = just(Token::If)
-                .ignore_then(expression.clone())
+                .ignore_then(inline_expression.clone())
                 .recover_with(via_parser(nested_delimiters(
                     Token::If,
                     Token::Lparen,
                     [
-                        (Token::Lparen, Token::Rparen),
                         (Token::Lbracket, Token::Rbracket),
                         (Token::Lparen, Token::Semicolon),
                     ],
                     |span| (Expression::ParserError, span),
                 )))
-                .then(block.clone())
+                .labelled("Condition")
+                .as_context()
+                .then(
+                    block
+                        .delimited_by(
+                            just(Token::Lparen),
+                            just(Token::Rparen).labelled("CLOSING IF THING"),
+                        )
+                        .clone()
+                        .labelled("If block")
+                        .as_context()
+                        .recover_with(via_parser(nested_delimiters(
+                            Token::Lparen,
+                            Token::Rparen,
+                            [(Token::Lbracket, Token::Rbracket)],
+                            |span| (Expression::ParserError, span),
+                        ))),
+                )
                 .map_with(|(condition, code_block), ctx| {
                     (
                         Expression::If(Box::new(If {
@@ -255,7 +267,8 @@ pub mod expressions {
                 inline_expression,
                 if_,
                 obj_construction,
-                extra_delimited(expression),
+                // Atoms can also just be normal expressions, but surrounded with parentheses
+                // extra_delimited(expression),
             ))
         })
     }

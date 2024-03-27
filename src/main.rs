@@ -62,7 +62,7 @@ fn print_error(error: &OutputError, ast: &OutputType, input: &str, src_name: &st
     let span = error.span();
     let found = error.found().unwrap_or(&parser::Token::Nothing);
     let note = if error.expected().next().is_none() {
-        format!("Unexpected Token \"{found}\"")
+        format!("Unexpected Token \"{error:?}\"")
     } else {
         let expected = error
             .expected()
@@ -73,7 +73,6 @@ fn print_error(error: &OutputError, ast: &OutputType, input: &str, src_name: &st
     };
 
     let empty_span = parser::span_functions::span_from(span.start);
-    eprintln!("[DEBUG]\n\n{}", ast.0);
     let context = error
         .contexts()
         .last()
@@ -84,8 +83,8 @@ fn print_error(error: &OutputError, ast: &OutputType, input: &str, src_name: &st
             context.0, context.1
         ))
         .with_label(
-            Label::new((src_name, span.start..span.end))
-                .with_message(format!("found {found:?}",))
+            Label::new((src_name, span.start - 1..span.end - 1))
+                .with_message(format!("found {found}",))
                 .with_color(Color::Red),
         )
         .with_note(note)

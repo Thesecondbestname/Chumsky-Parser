@@ -83,7 +83,7 @@ impl<'i, L, P> SketchyParserBuilder<'i, Initialized, L, P> {
     }
     pub fn lex_sketchy_programm(self) -> LexResult<'i, P> {
         LexResult(
-            lex_sketchy_program(&format!("({})", self.input.0))
+            lex_sketchy_program(&self.input.0)
                 .to_result()
                 .map(|lex| SketchyParserBuilder {
                     name: self.name,
