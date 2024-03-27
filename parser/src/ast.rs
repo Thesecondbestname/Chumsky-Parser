@@ -122,14 +122,9 @@ pub enum Value {
     Bool(bool),
     Span(i32, i32),
     Option(Box<Expression>),
-    Struct {
-        name: String,
-        fields: Vec<(String, Expression)>,
-    },
-    /// This is for when the enum is actually constructed
-    Enum {
-        name: String,
-        field: Vec<(String, Vec<(String, Expression)>)>,
+    Object {
+        name: Spanned<Ident>,
+        fields: Spanned<Vec<(Spanned<String>, Spanned<Expression>)>>,
     },
 }
 #[derive(Clone, Debug)]
@@ -188,12 +183,13 @@ crate::impl_display!(Value, |s: &Value| match s {
     Value::Bool(bool) => format!("{bool}"),
     Value::Span(start, end) => format!("{}..{}", start, end),
     Value::Option(val) => format!("{val}?"),
-    Value::Struct { name, fields } => format!(
+    Value::Object { name, fields } => format!(
         "{} {{{}}}",
-        name,
+        name.0,
         fields
+            .0
             .iter()
-            .map(|(name, field)| format!("{}: {}", name, field))
+            .map(|(name, field)| format!("{}: {}", name.0, field.0))
             .collect::<Vec<_>>()
             .join(",")
     ),

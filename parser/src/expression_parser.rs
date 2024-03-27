@@ -22,11 +22,14 @@ pub mod expressions {
         let ident = ident_parser();
         let int = select! { Token::Integer(v) => v }.labelled("Whole AAh integer");
         let float = select! { Token::Float(v) => v }.labelled("Floating point");
-        let number = int
-            .map(|int| Expression::Value(Value::Number(Number::Int(int))))
-            .or(float.map(|float| Expression::Value(Value::Number(Number::Float(float)))));
-        let bool = select! {Token::True => Expression::Value(Value::Bool(true)),
-        Token::False => Expression::Value(Value::Bool(false))}
+        let number =
+            int.map_with(|int, ctx| Expression::Value(Value::Number(Number::Int(int))))
+                .or(float
+                    .map_with(|float, ctx| Expression::Value(Value::Number(Number::Float(float)))));
+        let bool = select! {
+            Token::True=> Expression::Value(Value::Bool(true)),
+            Token::False => Expression::Value(Value::Bool(false))
+        }
         .labelled("Boolean");
         let string = select! {Token::LiteralString(s) => Expression::Value(Value::String(s))}
             .labelled("String");
@@ -204,16 +207,25 @@ pub mod expressions {
                 }; // Comparison ops (equal, not-equal) have equal precedence
                 comp.labelled("Atom").as_context().boxed()
             };
-            let struct_construction = ident
+            let obj_construction = ident
+                .clone()
+                .map_with(|a, ctx| (a, ctx.span()))
                 .then(
                     name_parser()
+                        .map_with(|a, ctx| (a, ctx.span()))
                         .then_ignore(just(Token::Eq))
                         .then(expression.clone())
                         .separated_by(just(Token::Colon))
                         .collect::<Vec<_>>()
+                        .map_with(|a, ctx| (a, ctx.span()))
                         .delimited_by(just(Token::Lbracket), just(Token::Rbracket)),
                 )
-                .map_with(|(a, b): (crate::ast::Ident, _), ctx| (a, ctx.span()));
+                .map_with(|(name, args), ctx| {
+                    (
+                        Expression::Value(Value::Object { name, fields: args }),
+                        ctx.span(),
+                    )
+                });
             // if => "if" expr block
             let if_ = just(Token::If)
                 .ignore_then(expression.clone())
@@ -239,7 +251,12 @@ pub mod expressions {
                 })
                 .labelled("if *expression*")
                 .as_context();
-            choice((inline_expression, if_, extra_delimited(expression)))
+            choice((
+                inline_expression,
+                if_,
+                obj_construction,
+                extra_delimited(expression),
+            ))
         })
     }
     // pub fn pattern<'tokens, 'src: 'tokens, T>(

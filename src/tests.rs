@@ -45,6 +45,11 @@ fn test_paths() -> anyhow::Result<()> {
     test(input, "test_paths")
 }
 #[test]
+fn test_struct_construction() -> anyhow::Result<()> {
+    let input = r#"Dude { name= "Kevin", mood= Mood::Sadge}"#;
+    test(input, "test_struct_construction")
+}
+#[test]
 fn test_enum_construction() -> anyhow::Result<()> {
     let input = "Some(24)";
     test(input, "test_enum_construction")
