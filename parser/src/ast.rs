@@ -38,7 +38,7 @@ pub struct FunctionDeclaration {
 }
 #[derive(Debug, Clone)]
 /// Obviously for importing stuff
-pub struct Import(pub Vec<Spanned<String>>, pub Spanned<String>);
+pub struct Import(pub Vec<Spanned<String>>);
 
 #[derive(Debug, Clone)]
 /// Where the enum is declared and not where it is constructed
@@ -245,8 +245,12 @@ crate::impl_display!(BlockElement, |s: &BlockElement| {
     }
 });
 crate::impl_display!(Ident, |s: &Ident| {
-    let x = s.0.iter().map(|x| x.0.clone()).collect::<String>();
-    x
+    return s
+        .0
+        .iter()
+        .map(|x| x.0.clone())
+        .collect::<Vec<_>>()
+        .join("::");
 });
 crate::impl_display!(Item, |s: &Item| {
     match s {
@@ -259,7 +263,7 @@ crate::impl_display!(Item, |s: &Item| {
             "{}({arguments:?}) -> {:?} ({})",
             name.0, return_type.0, body.0
         ),
-        Item::Import(imp) => format!("import ({:?} {})", imp.0 .0, imp.0 .1 .0),
+        Item::Import((imp, _)) => format!("import ({:?})", imp.0),
         Item::Enum(_) => todo!(),
         Item::Struct(_) => todo!(),
     }

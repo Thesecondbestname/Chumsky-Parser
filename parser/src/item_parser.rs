@@ -152,9 +152,6 @@ pub fn import_parser<'tokens, 'src: 'tokens>(
                 .separated_by(just(Token::Slash))
                 .collect(),
         )
-        .then_ignore(just(Token::Slash))
-        .then(ident.clone())
-        .then_ignore(newline())
-        .map_with(|(module, name), ctx| ((Import(module, (name, ctx.span()))), ctx.span()));
+        .map_with(|module, ctx| (Import(module), ctx.span()));
     import
 }

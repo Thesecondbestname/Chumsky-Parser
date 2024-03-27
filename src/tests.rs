@@ -166,10 +166,7 @@ fn test(input: &str, name: &'static str) -> anyhow::Result<()> {
     let a = colors.next();
     let parse = SketchyParser::builder()
         .input(input, name)
-        .replace_tabs_with_spaces()
-        .remove_duplicate_whitespace()
-        .remove_duplicate_newline()
-        .remove_empty_lines()
+        .dbg_print_input()
         .lex_sketchy_programm()
         .print_errors(|span, token, input, name| {
             Report::build(ReportKind::Error, name, 12)
@@ -184,9 +181,12 @@ fn test(input: &str, name: &'static str) -> anyhow::Result<()> {
                 .expect("Falied to build report!");
         })
         .into_result()?
+        .remove_duplicate_newline()
+        .dbg_print_tokens()
         .parse_sketchy_programm()
         .print_errors(crate::print_error)
         .into_result()?
         .finish();
+    println!("{}", parse.ast());
     Ok(())
 }

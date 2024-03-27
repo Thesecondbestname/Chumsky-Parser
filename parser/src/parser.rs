@@ -52,7 +52,7 @@ pub struct SketchyParser {
 pub struct SketchyParserBuilder<'i, I, L, P> {
     name: &'i str,
     input: I,
-    tokens: Option<L>,
+    tokens: L,
     parse_result: P,
 }
 impl<'i, I, L: Default, P: Default> SketchyParserBuilder<'i, I, L, P> {
@@ -77,51 +77,9 @@ impl<'i, L, P> SketchyParserBuilder<'i, Initialized, L, P> {
             ..self
         }
     }
-    pub fn remove_duplicate_newline(self) -> Self {
-        let mut new_str = self.input.0.trim().to_owned();
-        let mut prev = '\n'; // The initial value doesn't really matter
-        new_str.retain(|ch| {
-            let result = ch != '\n' || prev != '\n';
-            prev = ch;
-            result
-        });
-        Self {
-            input: Initialized(new_str),
-            ..self
-        }
-    }
-    pub fn remove_empty_lines(self) -> Self {
-        let new_str = self
-            .input
-            .0
-            .split('\n')
-            .filter(|splice| splice.to_owned() == " ")
-            .collect::<Vec<_>>()
-            .join("\n");
-        Self {
-            input: Initialized(new_str),
-            ..self
-        }
-    }
-    pub fn replace_tabs_with_spaces(self) -> Self {
-        let new_str = self.input.0.replace('\t', " ");
-        Self {
-            input: Initialized(new_str),
-            ..self
-        }
-    }
-    pub fn remove_duplicate_whitespace(self) -> Self {
-        let mut new_str = self.input.0.trim().to_owned();
-        let mut prev = ' ';
-        new_str.retain(|ch| {
-            let result = ch != ' ' || prev != ' ';
-            prev = ch;
-            result
-        });
-        Self {
-            input: Initialized(new_str),
-            ..self
-        }
+    pub fn dbg_print_input(self) -> Self {
+        println!("{}", self.input.0);
+        self
     }
     pub fn lex_sketchy_programm(self) -> LexResult<'i, P> {
         LexResult(
@@ -130,9 +88,7 @@ impl<'i, L, P> SketchyParserBuilder<'i, Initialized, L, P> {
                 .map(|lex| SketchyParserBuilder {
                     name: self.name,
                     input: self.input.clone(),
-                    tokens: Some(Lexed(
-                        lex.into_iter().map(|(a, span)| (a, span.into())).collect(),
-                    )),
+                    tokens: (Lexed(lex.into_iter().map(|(a, span)| (a, span.into())).collect())),
                     parse_result: self.parse_result,
                 })
                 .map_err(|(recovered, err)| LexErr(recovered, err, self.input.0, self.name)),
@@ -140,8 +96,29 @@ impl<'i, L, P> SketchyParserBuilder<'i, Initialized, L, P> {
     }
 }
 impl<'a, 'i: 'a, P> SketchyParserBuilder<'i, Initialized, Lexed, P> {
+    pub fn dbg_print_tokens(self) -> Self {
+        println!("{:#?}", self.tokens);
+        self
+    }
+    pub fn remove_duplicate_newline(self) -> Self {
+        let mut prev = Token::Newline;
+        let toks = self
+            .tokens
+            .0
+            .into_iter()
+            .filter(|(tok, _)| {
+                let result = tok != &Token::Newline || prev != Token::Newline;
+                prev = tok.clone();
+                result
+            })
+            .collect();
+        Self {
+            tokens: Lexed(toks),
+            ..self
+        }
+    }
     pub fn parse_sketchy_programm(self) -> ParserResult<'a, 'i> {
-        let input = &self.tokens.as_ref().unwrap().0;
+        let input = &self.tokens.0;
         let parse =
             block_parser().parse(input.as_slice().spanned((input.len()..input.len()).into()));
         let (ast, errs) = parse.into_output_errors();
@@ -150,7 +127,7 @@ impl<'a, 'i: 'a, P> SketchyParserBuilder<'i, Initialized, Lexed, P> {
                 return ParserResult(Ok(SketchyParserBuilder {
                     name: self.name,
                     input: self.input.clone(),
-                    tokens: None,
+                    tokens: self.tokens,
                     parse_result: Parsed(Some(ast)),
                 }));
             }
