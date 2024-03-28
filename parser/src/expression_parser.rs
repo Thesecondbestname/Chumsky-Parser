@@ -50,17 +50,19 @@ pub mod expressions {
                 .labelled("Atom")
                 .as_context()
                 .map_with(|expr, span| (expr, span.span()))
-                .or(delim_block
-                    .clone()
-                    // Attempt to recover anything that looks like a parenthesised expression but contains errors
-                    .recover_with(via_parser(nested_delimiters(
-                        Token::Lparen,
-                        Token::Rparen,
-                        [(Token::Lbracket, Token::Rbracket)],
-                        |span| (Expression::ParserError, span),
-                    )))
-                    .labelled("Expression Block")
-                    .as_context());
+                .or(
+                    delim_block
+                        .clone()
+                        // Attempt to recover anything that looks like a parenthesised expression but contains errors
+                        .recover_with(via_parser(nested_delimiters(
+                            Token::Lparen,
+                            Token::Rparen,
+                            [(Token::Lbracket, Token::Rbracket)],
+                            |span| (Expression::ParserError, span),
+                        )))
+                        .labelled("Expression Block")
+                        .as_context(), // Atoms can also just be normal expressions, but surrounded with parentheses
+                );
                 // A list of expressions
                 let items = expression
                     .clone()
@@ -103,8 +105,11 @@ pub mod expressions {
                             .then(list.clone().or_not())
                             .repeated(),
                         |func: Spanned<Expression>, (name, args)| {
-                            let spanend = if args.clone().is_some_and(|x| x.last().is_some()) {
-                                args.clone().unwrap().last().unwrap().1.end
+                            let spanend = if let Some(arg) = args.clone() {
+                                arg.last()
+                                    .expect("[INTERNAL ERROR] I method args span is empty")
+                                    .1
+                                    .end
                             } else {
                                 func.1.end
                             };
@@ -155,7 +160,7 @@ pub mod expressions {
                 let else_expression = sum
                     .clone()
                     .foldl(
-                        just(Token::Else).ignore_then(block.clone()).repeated(),
+                        just(Token::Else).ignore_then(expression.clone()).repeated(),
                         |expr, else_branch| {
                             let span = expr.1.start()..else_branch.1.end();
                             (
@@ -213,9 +218,9 @@ pub mod expressions {
                         .then(expression.clone())
                         .separated_by(just(Token::Colon))
                         .collect::<Vec<_>>()
-                        .map_with(|a, ctx| (a, ctx.span()))
-                        .delimited_by(just(Token::Lbracket), just(Token::Rbracket)),
+                        .map_with(|a, ctx| (a, ctx.span())),
                 )
+                .delimited_by(just(Token::Lbracket), just(Token::Rbracket))
                 .map_with(|(name, args), ctx| {
                     (
                         Expression::Value(Value::Object { name, fields: args }),
@@ -237,11 +242,7 @@ pub mod expressions {
                 .labelled("Condition")
                 .as_context()
                 .then(
-                    block
-                        .delimited_by(
-                            just(Token::Lparen),
-                            just(Token::Rparen).labelled("CLOSING IF THING"),
-                        )
+                    expression
                         .clone()
                         .labelled("If block")
                         .as_context()
@@ -263,13 +264,7 @@ pub mod expressions {
                 })
                 .labelled("if *expression*")
                 .as_context();
-            choice((
-                inline_expression,
-                if_,
-                obj_construction,
-                // Atoms can also just be normal expressions, but surrounded with parentheses
-                // extra_delimited(expression),
-            ))
+            choice((inline_expression, if_, obj_construction))
         })
     }
     // pub fn pattern<'tokens, 'src: 'tokens, T>(

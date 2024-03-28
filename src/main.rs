@@ -66,10 +66,10 @@ fn print_error(error: &OutputError, ast: &OutputType, input: &str, src_name: &st
     } else {
         let expected = error
             .expected()
-            .map(|a| format!("{a:#?} "))
+            .map(|a| format!(r#"{a} "#))
             .collect::<Vec<_>>()
             .concat();
-        format!("Expected {expected} but found {found}")
+        format!(r#"Expected one of {expected}but found "{found}""#)
     };
 
     let empty_span = parser::span_functions::span_from(span.start);
@@ -84,7 +84,7 @@ fn print_error(error: &OutputError, ast: &OutputType, input: &str, src_name: &st
         ))
         .with_label(
             Label::new((src_name, span.start - 1..span.end - 1))
-                .with_message(format!("found {found}",))
+                .with_message(format!(r#"found "{found}""#,))
                 .with_color(Color::Red),
         )
         .with_note(note)
