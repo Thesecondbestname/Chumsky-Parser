@@ -114,7 +114,7 @@ fn test_assign() -> anyhow::Result<()> {
 }
 #[test]
 fn test_else() -> anyhow::Result<()> {
-    let input = "24 + 4 else (b)";
+    let input = "24 + 4 else (x = 5)";
     test(input, "test_else")
 }
 #[test]
@@ -190,6 +190,6 @@ fn test(input: &str, name: &'static str) -> anyhow::Result<()> {
         .print_errors(crate::print_error)
         .into_result()?
         .finish();
-    println!("{}", parse.ast());
+    println!("\n\t{}", parse.ast());
     Ok(())
 }

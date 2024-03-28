@@ -83,7 +83,7 @@ fn print_error(error: &OutputError, ast: &OutputType, input: &str, src_name: &st
             context.0, context.1
         ))
         .with_label(
-            Label::new((src_name, span.start - 1..span.end - 1))
+            Label::new((src_name, span.start..span.end))
                 .with_message(format!(r#"found "{found}""#,))
                 .with_color(Color::Red),
         )

@@ -10,7 +10,7 @@ use chumsky::prelude::*;
 use chumsky::span::Span;
 use thiserror::Error as DeriveError;
 
-fn block_parser<'tokens, 'src: 'tokens>() -> impl Parser<
+pub fn block_parser<'tokens, 'src: 'tokens>() -> impl Parser<
     'tokens,
     ParserInput<'tokens, 'src>, // Input
     Spanned<Expression>,        // Output

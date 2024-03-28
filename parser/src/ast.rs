@@ -199,19 +199,38 @@ crate::impl_display!(MathOp, |s: &MathOp| match s {
 crate::impl_display!(Expression, |s: &Expression| {
     match s {
         Expression::MathOp(a, b, c) => {
-            format!("({:?} {} {})", b, a.0, c.0)
+            format!("({} {} {})", a.0, b, c.0)
         }
         Expression::Value(a) => format!("{a}"),
         Expression::Ident(a) => format!("<{a}>"),
         Expression::ParserError => "Error".to_string(),
-        Expression::FunctionCall(called, args) => format!("call ({} ({args:?})", called.0),
+        Expression::FunctionCall(called, args) => format!(
+            "call ({} ({}))",
+            called.0,
+            args.iter().fold(String::new(), |acc, a| format!(
+                "{acc} {}",
+                format!("{},", a.0)
+            ))
+        ),
         Expression::MethodCall(on, name, args) => {
-            format!("call ({} on {} ({args:?}) )", name, on.0)
+            format!(
+                "call ({} on {} ({}) )",
+                name,
+                on.0,
+                args.iter().fold(String::new(), |acc, a| format!(
+                    "{acc} {}",
+                    format!("{},", a.0)
+                ))
+            )
         }
         Expression::Block(block) => format!("{block}"),
         Expression::If(if_) => format!("{if_}"),
         Expression::Comparison(lhs, op, rhs) => format!("({} {op:?} {})", lhs.0, rhs.0),
         Expression::Binary(a, op, b) => format!("({:?} {} {})", op, a.0, b.0),
+        Expression::Else(c, e) => format!("{} else {}", c.0, e.0),
+        Expression::UnaryBool(e) => format!("!{}", e.0),
+        Expression::UnaryMath(e) => format!("-{}", e.0),
+        Expression::Unit => "Dis weird aah heal".to_owned(),
         fuck => format!("Not yet implemented to display {fuck:#?}"),
     }
 });
@@ -236,7 +255,6 @@ crate::impl_display!(BlockElement, |s: &BlockElement| {
         // HACK: THIS IS EXTREEEMELY VOLATILE it will overflow the stack if captured
         BlockElement::Statement(stmt) => format!("{}", stmt.0),
         BlockElement::SilentExpression(expr) => format!("{}", expr.0),
-        fuck => format!("BlockElement doesn't have a display impl \n{fuck:#?}"),
     }
 });
 crate::impl_display!(Ident, |s: &Ident| {
@@ -247,14 +265,27 @@ crate::impl_display!(Ident, |s: &Ident| {
         .collect::<Vec<_>>()
         .join("::");
 });
+crate::impl_display!(Type, |s: &Type| {
+    match s {
+        Type::Int => "integer".to_owned(),
+        Type::Bool => "boolean".to_owned(),
+        Type::Float => "float".to_owned(),
+        Type::String => "string".to_owned(),
+        Type::Array(_, _) => "array".to_owned(),
+        Type::Tuple(t) => format!("({:?})", t),
+        Type::Char => "char".to_owned(),
+        Type::Span => "span".to_owned(),
+        Type::Path(p) => format!("{}", p.0),
+    }
+});
 crate::impl_display!(StructDeclaration, |s: &StructDeclaration| {
     let fields = s
         .fields
         .iter()
-        .map(|x| format!("{}: {:?}", x.0.name.0.clone(), x.0.r#type.0.clone()))
+        .map(|x| format!("{}: {}", x.0.name.0.clone(), x.0.r#type.0.clone()))
         .collect::<Vec<_>>()
         .join(",");
-    format!("{0}, {fields}", s.name)
+    format!("{0} {{ {fields}}}", s.name)
 });
 crate::impl_display!(Item, |s: &Item| {
     match s {
@@ -264,8 +295,15 @@ crate::impl_display!(Item, |s: &Item| {
             arguments,
             body,
         }) => format!(
-            "{}({arguments:?}) -> {:?} ({})",
-            name.0, return_type.0, body.0
+            "{}({}) -> {} ({})",
+            name.0,
+            arguments.iter().fold(String::new(), |acc, a| format!(
+                "{acc} {}: {},",
+                a.0 .0 .0.clone(),
+                a.0 .1 .0.clone()
+            )),
+            return_type.0,
+            body.0
         ),
         Item::Import((imp, _)) => format!("import ({:?})", imp.0),
         Item::Enum(_) => todo!(),
@@ -275,13 +313,13 @@ crate::impl_display!(Item, |s: &Item| {
 crate::impl_display!(Statement, |s: &Statement| {
     match s {
         Statement::ParserError => "Error while parsing Statement".to_owned(),
-        Statement::Break(val) => format!("Break {}", val.0),
-        Statement::Loop(blocc) => format!("loop {}", blocc.0),
-        Statement::Return(val) => format!("return {}", val.0),
-        Statement::Continue => format!("continue"),
+        Statement::Break(val) => format!("Break {};", val.0),
+        Statement::Loop(blocc) => format!("loop ({});", blocc.0),
+        Statement::Return(val) => format!("return {};", val.0),
+        Statement::Continue => "continue;".to_string(),
+        Statement::VariableDeclaration(name, e) => format!("{name} = {};", e.0),
         Statement::WhileLoop(_, _) => todo!(),
         Statement::Expression(e) => format!("{e}"),
-        // fuck => format!("Not yet implemented {fuck} :3\n"),
         _ => String::new(),
     }
 });

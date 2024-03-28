@@ -205,8 +205,46 @@ pub mod expressions {
                             )
                         },
                     )
-                }; // Comparison ops (equal, not-equal) have equal precedence
-                comp.labelled("Atom").as_context().boxed()
+                };
+                // if => "if" expr block
+                let if_ = just(Token::If)
+                    .ignore_then(comp.clone())
+                    .recover_with(via_parser(nested_delimiters(
+                        Token::If,
+                        Token::Lparen,
+                        [
+                            (Token::Lbracket, Token::Rbracket),
+                            (Token::Lparen, Token::Semicolon),
+                        ],
+                        |span| (Expression::ParserError, span),
+                    )))
+                    .labelled("Condition")
+                    .as_context()
+                    .then(
+                        expression
+                            .clone()
+                            .labelled("If block")
+                            .as_context()
+                            .recover_with(via_parser(nested_delimiters(
+                                Token::Lparen,
+                                Token::Rparen,
+                                [(Token::Lbracket, Token::Rbracket)],
+                                |span| (Expression::ParserError, span),
+                            ))),
+                    )
+                    .map_with(|(condition, code_block), ctx| {
+                        (
+                            Expression::If(Box::new(If {
+                                condition: Box::new(condition),
+                                code_block,
+                            })),
+                            ctx.span(),
+                        )
+                    })
+                    .labelled("if *expression*")
+                    .as_context();
+                // Comparison ops (equal, not-equal) have equal precedence
+                comp.labelled("line expression").as_context().boxed()
             };
             let obj_construction = ident
                 .clone()
@@ -227,44 +265,7 @@ pub mod expressions {
                         ctx.span(),
                     )
                 });
-            // if => "if" expr block
-            let if_ = just(Token::If)
-                .ignore_then(inline_expression.clone())
-                .recover_with(via_parser(nested_delimiters(
-                    Token::If,
-                    Token::Lparen,
-                    [
-                        (Token::Lbracket, Token::Rbracket),
-                        (Token::Lparen, Token::Semicolon),
-                    ],
-                    |span| (Expression::ParserError, span),
-                )))
-                .labelled("Condition")
-                .as_context()
-                .then(
-                    expression
-                        .clone()
-                        .labelled("If block")
-                        .as_context()
-                        .recover_with(via_parser(nested_delimiters(
-                            Token::Lparen,
-                            Token::Rparen,
-                            [(Token::Lbracket, Token::Rbracket)],
-                            |span| (Expression::ParserError, span),
-                        ))),
-                )
-                .map_with(|(condition, code_block), ctx| {
-                    (
-                        Expression::If(Box::new(If {
-                            condition: Box::new(condition),
-                            code_block,
-                        })),
-                        ctx.span(),
-                    )
-                })
-                .labelled("if *expression*")
-                .as_context();
-            choice((inline_expression, if_, obj_construction))
+            choice((inline_expression, obj_construction))
         })
     }
     // pub fn pattern<'tokens, 'src: 'tokens, T>(
