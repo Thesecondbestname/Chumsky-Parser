@@ -2,7 +2,7 @@ use crate::ast::{Block, BlockElement, Expression};
 use crate::convenience_types::{Error, ParserInput, Spanned};
 use crate::item_parser::item_parser;
 use crate::lexer::{lex_sketchy_program, Lex, LexError};
-use crate::parsers::{expression_parser, statement_parser};
+use crate::parsers::expression_parser;
 use crate::span_functions::empty_span;
 use crate::util_parsers::{extra_delimited, newline};
 use crate::Token;
@@ -14,23 +14,27 @@ pub fn block_parser<'tokens, 'src: 'tokens>() -> impl Parser<
     'tokens,
     ParserInput<'tokens, 'src>, // Input
     Spanned<Expression>,        // Output
-    Error<'tokens>,             // Error Type
+    Error<'tokens>,             // Error Type)
 > + Clone {
     // import, function, statement
-    return recursive(|block| {
+    let x = recursive(|block| {
+        let delim_expr = extra_delimited(expression_parser(block.clone()));
         let block_element = choice((
-            item_parser(extra_delimited::<_, Spanned<Expression>>(block.clone()))
+            item_parser(expression_parser(block.clone()))
                 .map_with(|item, ctx| BlockElement::Item((item, ctx.span()))),
-            statement_parser(expression_parser(block))
-                .then_ignore(newline())
-                .map(BlockElement::Statement),
+            // statement_parser(expression_parser(block))
+            //     .then_ignore(newline())
+            //     .map(BlockElement::Statement),
         ));
+        // I want to return a parser that parses expressions to allow for things like (23 -3) + 45
+        // But for the top level I need a parser that does not allow this. We don't want print() without an assignment...
         return block_element
             .map_with(|expr, ctx| (expr, ctx.span()))
             .repeated()
             .collect::<Vec<_>>()
             .map_with(|items, ctx| (Expression::Block(Block(items)), ctx.span()));
     });
+    x
 }
 // ----- STATES ----
 #[derive(Default, Clone)]
@@ -112,6 +116,19 @@ impl<'a, 'i: 'a, P> SketchyParserBuilder<'i, Initialized, Lexed, P> {
                 result
             })
             .collect();
+        Self {
+            tokens: Lexed(toks),
+            ..self
+        }
+    }
+    pub fn wrap_programm_in_main_assignment(self) -> Self {
+        let mut toks = vec![
+            (Token::Ident("main".to_owned()), empty_span()),
+            (Token::Assign, empty_span()),
+            (Token::Lparen, empty_span()),
+        ];
+        toks.extend(self.tokens.0);
+        toks.extend(vec![(Token::Rparen, toks.last().unwrap().1)]);
         Self {
             tokens: Lexed(toks),
             ..self

@@ -50,27 +50,10 @@ where
         // loop => "loop" expr block
         let loop_ = just(Token::Loop)
             .ignore_then(expr.clone())
-            .then_ignore(newline())
             .map(|expr| -> Statement { Statement::Loop(expr) })
             .labelled("loop statement")
             .as_context();
-
-        // assignment => ident "=" expr
-        let assignment = name_parser()
-            .then_ignore(just(Token::Assign))
-            .then(expr.clone())
-            // TODO: TEST IF COMMENTING OUT THIS LINE RESULTS IN ERRONIOUS PARSING
-            // .then_ignore(choice((just(Token::Newline).ignored(), end())))
-            .map_with(|(name, val), ctx| -> (Statement, SimpleSpan) {
-                (
-                    Statement::VariableDeclaration(name, Box::new(val)),
-                    ctx.span(),
-                )
-            })
-            .labelled("assignment")
-            .as_context();
         choice((
-            assignment,
             expr.clone()
                 .then_ignore(just(Token::StmtCast))
                 .map(|(expr, span)| (Statement::Expression(expr), span)),
@@ -78,7 +61,8 @@ where
             continue_.map_with(|stmnt: Statement, ctx| (stmnt, ctx.span())),
             break_.map_with(|stmnt: Statement, ctx| (stmnt, ctx.span())),
             return_.map_with(|stmnt: Statement, ctx| (stmnt, ctx.span())),
-            expr.map(|(expr, span)| (Statement::Expression(expr), span)),
+            // expr.clone()
+            //     .map(|(expr, span)| (Statement::Expression(expr), span)),
             // TODO: Add recovery here in case user forgets the stmt cast
         ))
     };

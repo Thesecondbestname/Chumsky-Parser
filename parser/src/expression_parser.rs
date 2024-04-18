@@ -34,7 +34,7 @@ pub mod expressions {
         let string = select! {Token::LiteralString(s) => Expression::Value(Value::String(s))}
             .labelled("String");
         let span = select! {Token::Span(s) => Expression::Value(Value::Span(s.start, s.end))};
-        let delim_block = extra_delimited(block.clone());
+        let delim_block = extra_delimited(block).labelled("Code block");
 
         // The recursive expression Part
         recursive(|expression| {
@@ -51,7 +51,8 @@ pub mod expressions {
                 .as_context()
                 .map_with(|expr, span| (expr, span.span()))
                 .or(
-                    delim_block
+                    extra_delimited(expression.clone())
+                        .or(delim_block.clone())
                         .clone()
                         // Attempt to recover anything that looks like a parenthesised expression but contains errors
                         .recover_with(via_parser(nested_delimiters(
@@ -96,7 +97,8 @@ pub mod expressions {
                             (Expression::FunctionCall(Box::new(func), args.0), span)
                         },
                     )
-                    .labelled("Function call");
+                    .labelled("Function call")
+                    .as_context();
                 let method_call = call
                     .clone()
                     .foldl(
@@ -107,7 +109,11 @@ pub mod expressions {
                         |func: Spanned<Expression>, (name, args)| {
                             let spanend = if let Some(arg) = args.clone() {
                                 arg.last()
-                                    .expect("[INTERNAL ERROR] I method args span is empty")
+                                    .unwrap_or_else(|| {
+                                        panic!(
+                                            "[INTERNAL ERROR] method args span {arg:#?} is empty"
+                                        )
+                                    })
                                     .1
                                     .end
                             } else {
@@ -140,7 +146,8 @@ pub mod expressions {
                             span.into(),
                         )
                     })
-                    .labelled("product");
+                    .labelled("product")
+                    .as_context();
 
                 // Sum ops (add and subtract) have equal precedence
                 let op = just(Token::Plus)
@@ -155,12 +162,13 @@ pub mod expressions {
                             span.into(),
                         )
                     })
-                    .labelled("sum");
+                    .labelled("sum")
+                    .as_context();
 
                 let else_expression = sum
                     .clone()
                     .foldl(
-                        just(Token::Else).ignore_then(expression.clone()).repeated(),
+                        (just(Token::Else).ignore_then(expression.clone())).repeated(),
                         |expr, else_branch| {
                             let span = expr.1.start()..else_branch.1.end();
                             (
@@ -169,7 +177,8 @@ pub mod expressions {
                             )
                         },
                     )
-                    .labelled("if else");
+                    .labelled("Else expression")
+                    .as_context();
 
                 let logical = {
                     let op = select! {
@@ -184,7 +193,9 @@ pub mod expressions {
                             (Expression::Binary(Box::new(lhs), op, Box::new(rhs)), span)
                         },
                     )
-                };
+                }
+                .labelled("Equality")
+                .as_context();
 
                 let comp = {
                     let op = select! {
@@ -205,8 +216,10 @@ pub mod expressions {
                             )
                         },
                     )
-                };
-                // if => "if" expr block
+                }
+                .labelled("comparison")
+                .as_context();
+                // if => "if" expr block else
                 let if_ = just(Token::If)
                     .ignore_then(comp.clone())
                     .recover_with(via_parser(nested_delimiters(
@@ -220,6 +233,7 @@ pub mod expressions {
                     )))
                     .labelled("Condition")
                     .as_context()
+                    .then_ignore(just(Token::Then))
                     .then(
                         expression
                             .clone()
@@ -241,10 +255,9 @@ pub mod expressions {
                             ctx.span(),
                         )
                     })
-                    .labelled("if *expression*")
-                    .as_context();
+                    .labelled("if *expression*");
                 // Comparison ops (equal, not-equal) have equal precedence
-                comp.labelled("line expression").as_context().boxed()
+                choice((comp.labelled("line expression").as_context(), if_)).boxed()
             };
             let obj_construction = ident
                 .clone()
@@ -265,7 +278,7 @@ pub mod expressions {
                         ctx.span(),
                     )
                 });
-            choice((inline_expression, obj_construction))
+            choice((inline_expression.boxed(), obj_construction))
         })
     }
     // pub fn pattern<'tokens, 'src: 'tokens, T>(

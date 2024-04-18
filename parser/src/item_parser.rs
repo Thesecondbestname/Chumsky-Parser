@@ -1,11 +1,12 @@
 use crate::ast::{
     EnumDeclaration, EnumVariantDeclaration, Expression, FunctionDeclaration, Import, Item,
-    StructDeclaration, StructField, Type,
+    StructDeclaration, StructField, Type, VariableDeclaration,
 };
 use crate::convenience_parsers::{name_parser, separator, type_parser};
 use crate::convenience_types::{Error, ParserInput, Spanned};
 use crate::lexer::Token;
-use crate::util_parsers::{newline, parameter_parser};
+use crate::parsers::statement_parser;
+use crate::util_parsers::{extra_delimited, newline, parameter_parser};
 
 use chumsky::prelude::*;
 
@@ -16,6 +17,11 @@ where
     T: Parser<'tokens, ParserInput<'tokens, 'src>, Spanned<Expression>, Error<'tokens>> + Clone, // Statement
 {
     choice((
+        assingment_parser(block.clone())
+            .then_ignore(separator())
+            .map(Item::Assingment)
+            .labelled("Assignment")
+            .as_context(),
         fn_parser(block)
             .then_ignore(separator())
             .map(Item::Function)
@@ -48,7 +54,7 @@ pub fn fn_parser<'tokens, 'src: 'tokens, T>(
 where
     T: Parser<'tokens, ParserInput<'tokens, 'src>, Spanned<Expression>, Error<'tokens>> + Clone, // Statement
 {
-    let block = block.labelled("Code block").as_context();
+    let block = extra_delimited(block).labelled("Code block").as_context();
     let arguments = parameter_parser()
         .map_with(|(name, b), ctx| ((b, name), ctx.span()))
         .separated_by(just(Token::Comma).then(separator()))
@@ -155,4 +161,25 @@ pub fn import_parser<'tokens, 'src: 'tokens>(
         .then_ignore(newline())
         .map_with(|module, ctx| (Import(module), ctx.span()));
     import
+}
+pub fn assingment_parser<'tokens, 'src: 'tokens, T>(
+    expr: T,
+) -> (impl Parser<
+    'tokens,
+    ParserInput<'tokens, 'src>,   // Input
+    Spanned<VariableDeclaration>, // Output
+    Error<'tokens>,               // Error Type
+> + Clone)
+where
+    T: Parser<'tokens, ParserInput<'tokens, 'src>, Spanned<Expression>, Error<'tokens>> + Clone, // Statement
+{
+    let assignment = name_parser()
+        .then_ignore(just(Token::Assign))
+        .then(expr)
+        // TODO: TEST IF COMMENTING OUT THIS LINE RESULTS IN ERRONIOUS PARSING
+        .then_ignore(newline())
+        .map_with(|(name, val), ctx| -> (VariableDeclaration, SimpleSpan) {
+            (VariableDeclaration(name, val), ctx.span())
+        });
+    assignment
 }

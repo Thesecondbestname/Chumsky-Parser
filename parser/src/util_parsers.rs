@@ -97,7 +97,7 @@ pub fn newline<'tokens, 'src: 'tokens>() -> impl Parser<
 > + Clone {
     choice((
         just(Token::Newline).ignored(),
-        end().labelled(""),
+        end().labelled("EOI"),
         just(Token::Rparen).rewind().ignored(),
         just(Token::Lparen).rewind().ignored(),
     ))

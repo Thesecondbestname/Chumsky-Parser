@@ -27,7 +27,10 @@ pub enum Item {
     Import(Spanned<Import>),
     Enum(Spanned<EnumDeclaration>),
     Struct(Spanned<StructDeclaration>),
+    Assingment(Spanned<VariableDeclaration>),
 }
+#[derive(Debug, Clone)]
+pub struct VariableDeclaration(pub String, pub Spanned<Expression>);
 #[derive(Debug, Clone)]
 /// Here is where a function is defined
 pub struct FunctionDeclaration {
@@ -299,8 +302,8 @@ crate::impl_display!(Item, |s: &Item| {
             name.0,
             arguments.iter().fold(String::new(), |acc, a| format!(
                 "{acc} {}: {},",
-                a.0 .0 .0.clone(),
-                a.0 .1 .0.clone()
+                a.0 .1 .0.clone(),
+                a.0 .0 .0.clone()
             )),
             return_type.0,
             body.0
@@ -308,6 +311,7 @@ crate::impl_display!(Item, |s: &Item| {
         Item::Import((imp, _)) => format!("import ({:?})", imp.0),
         Item::Enum(_) => todo!(),
         Item::Struct((struct_, _)) => format!("{struct_}"),
+        Item::Assingment((decl, _)) => format!("{} = {};", decl.0, decl.1 .0),
     }
 });
 crate::impl_display!(Statement, |s: &Statement| {
