@@ -48,7 +48,7 @@ pub enum Token {
     #[token("!")]
     Bang,
     #[token(".")]
-    Period,
+    Dot,
     #[token(":")]
     Colon,
     #[token("::")]
@@ -227,7 +227,7 @@ impl_display!(Token, |s: &Token| {
         Token::Newline => "Newline".to_owned(),
         Token::Assign => "=".to_owned(),
         Token::Bang => "!".to_owned(),
-        Token::Period => ".".to_owned(),
+        Token::Dot => ".".to_owned(),
         Token::Colon => ":".to_owned(),
         Token::DoubleColon => "::".to_owned(),
         Token::Comma => ",".to_owned(),

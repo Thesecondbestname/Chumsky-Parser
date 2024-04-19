@@ -18,23 +18,20 @@ pub fn block_parser<'tokens, 'src: 'tokens>() -> impl Parser<
 > + Clone {
     // import, function, statement
     let x = recursive(|block| {
-        let delim_expr = extra_delimited(expression_parser(block.clone()));
-        let block_element = choice((
+        // let delim_expr = extra_delimited(expression_parser(block.clone()));
+        let block_element = 
+            // choice((
             item_parser(expression_parser(block.clone()))
-                .map_with(|item, ctx| BlockElement::Item((item, ctx.span()))),
-            // statement_parser(expression_parser(block))
-            //     .then_ignore(newline())
-            //     .map(BlockElement::Statement),
-        ));
+            .map_with(|item, ctx| BlockElement::Item((item, ctx.span())));
+            // ))
         // I want to return a parser that parses expressions to allow for things like (23 -3) + 45
         // But for the top level I need a parser that does not allow this. We don't want print() without an assignment...
-        return block_element
-            .map_with(|expr, ctx| (expr, ctx.span()))
-            .repeated()
-            .collect::<Vec<_>>()
-            .map_with(|items, ctx| (Expression::Block(Block(items)), ctx.span()));
+        return block_element.map_with(|expr, ctx| (expr, ctx.span()));
     });
     x
+.repeated()
+.collect::<Vec<_>>()
+.map_with(|items, ctx| (Expression::Block(Block(items)), ctx.span()))
 }
 // ----- STATES ----
 #[derive(Default, Clone)]
@@ -136,8 +133,7 @@ impl<'a, 'i: 'a, P> SketchyParserBuilder<'i, Initialized, Lexed, P> {
     }
     pub fn parse_sketchy_programm(self) -> ParserResult<'a, 'i> {
         let input = &self.tokens.0;
-        let parse =
-            block_parser().parse(input.as_slice().spanned((input.len()..input.len()).into()));
+        let parse = block_parser().parse(input.as_slice().spanned((input.len()..input.len()).into()));
         let (ast, errs) = parse.into_output_errors();
         if let Some(ast) = ast {
             if errs.is_empty() {

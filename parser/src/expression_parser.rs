@@ -1,13 +1,15 @@
 #[allow(clippy::too_many_lines)]
 pub mod expressions {
-    use crate::ast::{BinaryOp, ComparisonOp, Expression, If, MathOp, Number, Value};
+    use crate::ast::{
+        BinaryOp, Block, BlockElement, ComparisonOp, Expression, If, MathOp, Number, Value,
+    };
     use crate::convenience_types::{Error, ParserInput, Spanned};
     use crate::util_parsers::{extra_delimited, ident_parser, name_parser};
     use crate::Token;
     use chumsky::prelude::*;
 
     pub fn expression_parser<'tokens, 'src: 'tokens, T>(
-        block: T,
+        stmt: T,
     ) -> (impl Parser<
         'tokens,
         ParserInput<'tokens, 'src>, // Input
@@ -15,17 +17,16 @@ pub mod expressions {
         Error<'tokens>,             // Error Type
     > + Clone)
     where
-        T: Parser<'tokens, ParserInput<'tokens, 'src>, Spanned<Expression>, Error<'tokens>>
+        T: Parser<'tokens, ParserInput<'tokens, 'src>, Spanned<BlockElement>, Error<'tokens>>
             + Clone
             + 'tokens,
     {
         let ident = ident_parser();
         let int = select! { Token::Integer(v) => v }.labelled("Whole AAh integer");
         let float = select! { Token::Float(v) => v }.labelled("Floating point");
-        let number =
-            int.map_with(|int, ctx| Expression::Value(Value::Number(Number::Int(int))))
-                .or(float
-                    .map_with(|float, ctx| Expression::Value(Value::Number(Number::Float(float)))));
+        let number = int
+            .map(|int| Expression::Value(Value::Number(Number::Int(int))))
+            .or(float.map(|float| Expression::Value(Value::Number(Number::Float(float)))));
         let bool = select! {
             Token::True=> Expression::Value(Value::Bool(true)),
             Token::False => Expression::Value(Value::Bool(false))
@@ -34,25 +35,43 @@ pub mod expressions {
         let string = select! {Token::LiteralString(s) => Expression::Value(Value::String(s))}
             .labelled("String");
         let span = select! {Token::Span(s) => Expression::Value(Value::Span(s.start, s.end))};
-        let delim_block = extra_delimited(block).labelled("Code block");
+        let delim_block = extra_delimited(stmt.repeated().collect::<Vec<_>>())
+            .map(|items| (Expression::Block(Block(items))))
+            .labelled("Code block");
 
         // The recursive expression Part
         recursive(|expression| {
+            let obj_construction = ident
+                .clone()
+                .map_with(|a, ctx| (a, ctx.span()))
+                .then(
+                    name_parser()
+                        .map_with(|a, ctx| (a, ctx.span()))
+                        .then_ignore(just(Token::Assign))
+                        .then(expression.clone())
+                        .separated_by(just(Token::Comma))
+                        .collect::<Vec<_>>()
+                        .delimited_by(just(Token::Lbracket), just(Token::Rbracket))
+                        .map_with(|a, ctx| (a, ctx.span())),
+                )
+                .map(|(name, args)| Expression::Value(Value::Object { name, fields: args }))
+                .labelled("Object construction");
             let inline_expression = {
                 // Atom which is the smallest expression.
                 let atom = choice((
-                    ident.clone().map(Expression::Ident),
+                    obj_construction,
                     number,
                     bool,
                     string,
                     span,
+                    ident.clone().map(Expression::Ident),
+                    delim_block,
                 ))
                 .labelled("Atom")
                 .as_context()
                 .map_with(|expr, span| (expr, span.span()))
                 .or(
                     extra_delimited(expression.clone())
-                        .or(delim_block.clone())
                         .clone()
                         // Attempt to recover anything that looks like a parenthesised expression but contains errors
                         .recover_with(via_parser(nested_delimiters(
@@ -102,7 +121,7 @@ pub mod expressions {
                 let method_call = call
                     .clone()
                     .foldl(
-                        just(Token::Period)
+                        just(Token::Dot)
                             .ignore_then(ident.clone())
                             .then(list.clone().or_not())
                             .repeated(),
@@ -219,9 +238,10 @@ pub mod expressions {
                 }
                 .labelled("comparison")
                 .as_context();
+
                 // if => "if" expr block else
                 let if_ = just(Token::If)
-                    .ignore_then(comp.clone())
+                    .ignore_then(expression.clone())
                     .recover_with(via_parser(nested_delimiters(
                         Token::If,
                         Token::Lparen,
@@ -256,29 +276,11 @@ pub mod expressions {
                         )
                     })
                     .labelled("if *expression*");
+
                 // Comparison ops (equal, not-equal) have equal precedence
                 choice((comp.labelled("line expression").as_context(), if_)).boxed()
             };
-            let obj_construction = ident
-                .clone()
-                .map_with(|a, ctx| (a, ctx.span()))
-                .then(
-                    name_parser()
-                        .map_with(|a, ctx| (a, ctx.span()))
-                        .then_ignore(just(Token::Eq))
-                        .then(expression.clone())
-                        .separated_by(just(Token::Colon))
-                        .collect::<Vec<_>>()
-                        .map_with(|a, ctx| (a, ctx.span())),
-                )
-                .delimited_by(just(Token::Lbracket), just(Token::Rbracket))
-                .map_with(|(name, args), ctx| {
-                    (
-                        Expression::Value(Value::Object { name, fields: args }),
-                        ctx.span(),
-                    )
-                });
-            choice((inline_expression.boxed(), obj_construction))
+            inline_expression.boxed()
         })
     }
     // pub fn pattern<'tokens, 'src: 'tokens, T>(

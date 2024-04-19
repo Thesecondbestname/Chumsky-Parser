@@ -19,7 +19,7 @@ fn test_basic_lex() -> anyhow::Result<()> {
     // Some kinda idk  
     _ = add (4,5). sqrt
     
-    _ = if x == 4  (
+    _ = if x == 4 then (
         _ = print ("oooops!")
     ) else (
         _ = print ("phew")
@@ -143,12 +143,12 @@ fn test_multiple_statements() -> anyhow::Result<()> {
 }
 #[test]
 fn test_conditions() -> anyhow::Result<()> {
-    let input = r"g = if (4 == 4) (x = 3)";
+    let input = r"g = if (4 == 4) then (x = 3)";
     test(input, "test_conditions")
 }
 #[test]
 fn test_conditions_inverted_parens() -> anyhow::Result<()> {
-    let input = "l = if 4 == 4 (n = 2.pass)";
+    let input = "l = if 4 == 4 then (n = 2.pass)";
     test(input, "test_conditions_inverted_parens")
 }
 #[test]
@@ -171,6 +171,7 @@ fn test(input: &str, name: &'static str) -> anyhow::Result<()> {
     let a = colors.next();
     let parse = SketchyParser::builder()
         .input(input.trim(), name)
+        .dbg_print_input()
         .lex_sketchy_programm()
         .print_errors(|span, token, input, name| {
             Report::build(ReportKind::Error, name, 12)

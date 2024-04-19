@@ -191,7 +191,6 @@ crate::impl_display!(Value, |s: &Value| match s {
             .collect::<Vec<_>>()
             .join(",")
     ),
-    _ => unimplemented!(), // Value::Enum { name, field } => format!("{} {{{}}}", name, field),
 });
 crate::impl_display!(MathOp, |s: &MathOp| match s {
     MathOp::Add => "+".to_string(),
@@ -208,7 +207,7 @@ crate::impl_display!(Expression, |s: &Expression| {
         Expression::Ident(a) => format!("<{a}>"),
         Expression::ParserError => "Error".to_string(),
         Expression::FunctionCall(called, args) => format!(
-            "call ({} ({}))",
+            "{{{}({})}}",
             called.0,
             args.iter().fold(String::new(), |acc, a| format!(
                 "{acc} {}",
@@ -217,7 +216,7 @@ crate::impl_display!(Expression, |s: &Expression| {
         ),
         Expression::MethodCall(on, name, args) => {
             format!(
-                "call ({} on {} ({}) )",
+                "{{{}.{}({})}}",
                 name,
                 on.0,
                 args.iter().fold(String::new(), |acc, a| format!(
@@ -308,10 +307,17 @@ crate::impl_display!(Item, |s: &Item| {
             return_type.0,
             body.0
         ),
-        Item::Import((imp, _)) => format!("import ({:?})", imp.0),
-        Item::Enum(_) => todo!(),
+        Item::Import((imp, _)) => format!(
+            "use {};",
+            imp.0
+                .iter()
+                .fold(String::new(), |acc, (a, _)| format!("{acc}::{a}"))
+        ),
+        Item::Enum((EnumDeclaration { name, variants }, _)) => {
+            format!("enum {} {{{:?}}}", name, variants)
+        }
         Item::Struct((struct_, _)) => format!("{struct_}"),
-        Item::Assingment((decl, _)) => format!("{} = {};", decl.0, decl.1 .0),
+        Item::Assingment((decl, _)) => format!("let {} = {};", decl.0, decl.1 .0),
     }
 });
 crate::impl_display!(Statement, |s: &Statement| {
