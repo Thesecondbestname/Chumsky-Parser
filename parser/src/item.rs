@@ -5,7 +5,7 @@ use crate::ast::{
 use crate::convenience_parsers::{name_parser, separator, type_parser};
 use crate::convenience_types::{Error, ParserInput, Spanned};
 use crate::lexer::Token;
-use crate::util_parsers::{extra_delimited, newline, parameter_parser, pattern};
+use crate::util_parsers::{extra_delimited, irrefutable_pattern, newline, parameter_parser};
 
 use chumsky::prelude::*;
 
@@ -26,7 +26,7 @@ where
             .map(Item::Function)
             .labelled("Function")
             .as_context(),
-        enum_parser()
+        enum_parser(block.clone())
             .then_ignore(separator())
             .map(Item::Enum)
             .labelled("Enum")
@@ -144,24 +144,47 @@ where
     r#struct
 }
 
-pub fn enum_parser<'tokens, 'src: 'tokens>(
+pub fn enum_parser<'tokens, 'src: 'tokens, T>(
+    expr: T,
 ) -> impl Parser<'tokens, ParserInput<'tokens, 'src>, Spanned<EnumDeclaration>, Error<'tokens>> + Clone
+where
+    T: Parser<'tokens, ParserInput<'tokens, 'src>, Spanned<Expression>, Error<'tokens>> + Clone,
 {
     let enum_fields = name_parser()
-        .labelled("Enum field name")
         .then(
             type_parser()
+                .map_with(|a, ctx| (a, ctx.span()))
+                .separated_by(just(Token::Comma).then_ignore(separator()))
+                .collect()
                 .delimited_by(just(Token::Lparen), just(Token::Rparen))
                 .or_not(),
         )
         .padded_by(separator())
-        .map_with(|(name, r#type), ctx| (EnumVariantDeclaration { name, r#type }, ctx.span()))
+        .map_with(|(name, fields), ctx| {
+            (
+                EnumVariantDeclaration {
+                    name,
+                    fields: fields.unwrap_or(vec![]),
+                },
+                ctx.span(),
+            )
+        })
         .labelled("Enum field");
 
+    let impl_block = just(Token::Impl)
+        .ignore_then(name_parser().or_not())
+        .then_ignore(just(Token::Colon))
+        .then(
+            function_definition(expr)
+                .map_with(|f, ctx| (f, ctx.span()))
+                .separated_by(newline())
+                .allow_leading()
+                .collect::<Vec<Spanned<FunctionDeclaration>>>(),
+        )
+        .then_ignore(just(Token::Semicolon).padded_by(separator()))
+        .labelled("Impl block");
     let r#enum = just(Token::Enum)
-        .labelled("Enum Token")
         .ignore_then(name_parser())
-        .labelled("Enum name")
         .then_ignore(just(Token::Colon))
         .then_ignore(separator())
         .then(
@@ -170,8 +193,33 @@ pub fn enum_parser<'tokens, 'src: 'tokens>(
                 .allow_trailing()
                 .collect::<Vec<(EnumVariantDeclaration, SimpleSpan)>>(),
         )
+        .then_ignore(separator())
+        .then(
+            (impl_block)
+                .labelled("impl block")
+                .as_context()
+                .separated_by(separator())
+                .collect::<Vec<(Option<String>, Vec<Spanned<FunctionDeclaration>>)>>(),
+        )
         .then_ignore(just(Token::Semicolon))
-        .map_with(|(name, variants), ctx| (EnumDeclaration { name, variants }, ctx.span()));
+        .map_with(|((name, variants), fns), ctx| {
+            let impl_blocks = fns.into_iter().fold(
+                Vec::new(),
+                |acc: Vec<_>, (name, fns): (Option<String>, Vec<Spanned<FunctionDeclaration>>)| {
+                    acc.into_iter()
+                        .chain(vec![name.clone()].into_iter().cycle().zip(fns.into_iter()))
+                        .collect::<Vec<(Option<String>, Spanned<FunctionDeclaration>)>>()
+                },
+            );
+            (
+                EnumDeclaration {
+                    name,
+                    variants,
+                    impl_blocks,
+                },
+                ctx.span(),
+            )
+        });
     r#enum
 }
 
@@ -202,7 +250,7 @@ pub fn assingment<'tokens, 'src: 'tokens, T>(
 where
     T: Parser<'tokens, ParserInput<'tokens, 'src>, Spanned<Expression>, Error<'tokens>> + Clone, // Statement
 {
-    let assignment = pattern()
+    let assignment = irrefutable_pattern()
         .labelled("Pattern")
         .as_context()
         .then_ignore(just(Token::Assign))

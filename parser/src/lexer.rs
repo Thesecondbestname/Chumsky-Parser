@@ -63,6 +63,8 @@ pub enum Token {
     Else,
     #[token("then")]
     Then,
+    #[token("Self")]
+    Self_,
     #[token("continue")]
     Continue,
     #[token("impl")]
@@ -278,5 +280,6 @@ impl_display!(Token, |s: &Token| {
         Token::Rbucket => "]".to_owned(),
         Token::Lbucket => "[".to_owned(),
         Token::Arrow => "->".to_owned(),
+        Token::Self_ => "self".to_owned(),
     }
 });

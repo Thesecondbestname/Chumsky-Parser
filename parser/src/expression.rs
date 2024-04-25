@@ -3,7 +3,9 @@ use crate::ast::{
     BinaryOp, Block, BlockElement, ComparisonOp, Expression, If, MathOp, Number, Value,
 };
 use crate::convenience_types::{Error, ParserInput, Spanned};
-use crate::util_parsers::{extra_delimited, ident_parser, name_parser, pattern};
+use crate::util_parsers::{
+    extra_delimited, ident_parser, irrefutable_pattern, name_parser, separator,
+};
 use crate::Token;
 use chumsky::prelude::*;
 
@@ -276,12 +278,12 @@ where
             let r#match = just(Token::Match)
                 .ignore_then(expression.clone())
                 .then(
-                    pattern()
+                    irrefutable_pattern()
                         .then_ignore(just(Token::Arrow))
                         .then(expression)
-                        .separated_by(just(Token::Comma))
+                        .separated_by(just(Token::Comma).then(separator()))
                         .collect()
-                        .delimited_by(just(Token::On), just(Token::Semicolon)),
+                        .delimited_by(just(Token::On).then(separator()), just(Token::Semicolon)),
                 )
                 .map_with(|(condition, arms), ctx| {
                     (

@@ -12,9 +12,29 @@ fn basic_lex() -> anyhow::Result<()> {
     struct baz:
         lmao# int,
         lmao2# int
+        impl Add:
+            add: Self; int (
+                self.lmao + self.lmao2
+            )
+        ;
+        impl:
+            new: 
+                window #Window; int ( 
+                 a-4 *3
+            )   
+            draw: 
+                state #SnekGame, 
+                frame #Canvas, 
+                window #Window; int ( 
+                 a-4 *3
+            )   
+        ;
     ;
     add: x#int, y#int; int (
-        x + y
+        match x on 
+            4 -> "four",
+            _ -> x + y
+        ;
     )
     // Some kinda idk  
     _ = add (4,5). sqrt
@@ -33,6 +53,14 @@ fn structs() -> anyhow::Result<()> {
         lmao2# int
     ;";
     test(input, "structs")
+}
+#[test]
+fn enums() -> anyhow::Result<()> {
+    let input = r"enum Baz:
+        lmao,
+        lmao2(int, bool)
+    ;";
+    test(input, "enums")
 }
 #[test]
 fn struct_functions() -> anyhow::Result<()> {
@@ -55,7 +83,7 @@ fn struct_functions() -> anyhow::Result<()> {
         ;
 
     ;";
-    test(input, "structs")
+    test(input, "structs_with_impl")
 }
 #[test]
 fn method_calls() -> anyhow::Result<()> {

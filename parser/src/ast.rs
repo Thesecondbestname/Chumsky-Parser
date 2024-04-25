@@ -62,12 +62,13 @@ pub struct Import(pub Vec<Spanned<String>>);
 pub struct EnumDeclaration {
     pub name: String,
     pub variants: Vec<Spanned<EnumVariantDeclaration>>,
+    pub impl_blocks: Vec<(Option<String>, Spanned<FunctionDeclaration>)>,
 }
 /// A variant of an enum that is currently declared. I.e. an arm.
 #[derive(Debug, Clone)]
 pub struct EnumVariantDeclaration {
     pub name: String,
-    pub r#type: Option<Type>,
+    pub fields: Vec<Spanned<Type>>,
 }
 #[derive(Debug, Clone)]
 /// The one where the struct is firstly defined
@@ -175,6 +176,7 @@ pub enum BinaryOp {
 /// belongs here.
 #[derive(Debug, Clone, Eq, PartialEq)]
 pub enum Type {
+    Self_,
     Int,
     Bool,
     Float,
@@ -296,8 +298,9 @@ crate::impl_display!(Ident, |s: &Ident| {
 });
 crate::impl_display!(Type, |s: &Type| {
     match s {
+        Type::Self_ => "Self".to_owned(),
         Type::Int => "integer".to_owned(),
-        Type::Bool => "boo".to_owned(),
+        Type::Bool => "bool".to_owned(),
         Type::Float => "float".to_owned(),
         Type::String => "String".to_owned(),
         Type::Array(ty, size) => format!("[{ty};{size}]"),
@@ -314,45 +317,70 @@ crate::impl_display!(StructDeclaration, |s: &StructDeclaration| {
         .map(|x| format!("{}: {}", x.0.name.0.clone(), x.0.r#type.0.clone()))
         .collect::<Vec<_>>()
         .join(",");
-    format!("struct {0} {{ {fields}}}", s.name)
+    format!(
+        "struct {0} {{ {fields}}}{1}",
+        s.name,
+        s.impl_blocks
+            .iter()
+            .map(|a| format!(
+                "impl {}{}{{{}}}",
+                a.0.clone()
+                    .map(|a| a.to_owned() + " for ")
+                    .unwrap_or("".to_string()),
+                s.name,
+                a.1 .0
+            ))
+            .collect::<String>()
+    )
+});
+crate::impl_display!(FunctionDeclaration, |s: &FunctionDeclaration| {
+    format!(
+        "fn {}({}) -> {} ({})",
+        s.name.0,
+        s.arguments.iter().fold(String::new(), |acc, a| format!(
+            "{acc} {}: {},",
+            a.0 .1 .0.clone(),
+            a.0 .0 .0.clone()
+        )),
+        s.return_type.0,
+        s.body.0
+    )
 });
 crate::impl_display!(Item, |s: &Item| {
     match s {
-        Item::Function(FunctionDeclaration {
-            name,
-            return_type,
-            arguments,
-            body,
-        }) => format!(
-            "{}({}) -> {} ({})",
-            name.0,
-            arguments.iter().fold(String::new(), |acc, a| format!(
-                "{acc} {}: {},",
-                a.0 .1 .0.clone(),
-                a.0 .0 .0.clone()
-            )),
-            return_type.0,
-            body.0
-        ),
+        Item::Function(r#fn) => r#fn.to_string(),
         Item::Import((imp, _)) => format!(
             "use {};",
             imp.0
                 .iter()
                 .fold(String::new(), |acc, (a, _)| format!("{acc}::{a}"))
         ),
-        Item::Enum((EnumDeclaration { name, variants }, _)) => {
+        Item::Enum((
+            EnumDeclaration {
+                name,
+                variants,
+                impl_blocks,
+            },
+            _,
+        )) => {
             format!(
-                "enum {} {{{}}}",
+                "enum {} {{{} {:?}}}",
                 name,
                 variants.iter().fold(String::new(), |acc, (v, _)| acc
                     + &format!(
-                        "{}: {}",
+                        "{}({}{}),",
                         v.name,
-                        v.r#type
-                            .clone()
-                            .map(|a| a.to_string())
-                            .unwrap_or("_".to_string())
-                    ))
+                        v.fields
+                            .iter()
+                            .next()
+                            .map(|x| x.0.to_string())
+                            .unwrap_or("".to_string()),
+                        v.fields
+                            .iter()
+                            .skip(1)
+                            .fold(String::new(), |acc, b| format!("{acc}, {}", b.0))
+                    )),
+                impl_blocks
             )
         }
         Item::Struct((struct_, _)) => format!("{struct_}"),
