@@ -1,7 +1,7 @@
 use ariadne::{ColorGenerator, Label, Report, ReportKind, Source};
 use parser::SketchyParser;
 #[test]
-fn test_basic_lex() -> anyhow::Result<()> {
+fn basic_lex() -> anyhow::Result<()> {
     let lex = r#"use io/print
     x = xöla
     y = 69 / (56 - 0.45)
@@ -24,147 +24,189 @@ fn test_basic_lex() -> anyhow::Result<()> {
     ) else (
         _ = print ("phew")
     )"#;
-    test(lex, "test_basic_lex")
+    test(lex, "basic_lex")
 }
 #[test]
-fn test_structs() -> anyhow::Result<()> {
+fn structs() -> anyhow::Result<()> {
     let input = r"struct baz:
         lmao# int,
         lmao2# int
     ;";
-    test(input, "test_structs")
+    test(input, "structs")
 }
 #[test]
-fn test_method_calls() -> anyhow::Result<()> {
+fn struct_functions() -> anyhow::Result<()> {
+    let input = r"struct baz:
+        lmao# int,
+        lmao2# int,
+        impl Add:
+            draw: 
+                state #SnekGame, 
+                frame #Canvas, 
+                window #Window; int ( 
+                 a-4 *3
+            )   
+        ;
+        impl:
+            new: 
+                window #Window; int ( 
+                 a-4 *3
+            )   
+        ;
+
+    ;";
+    test(input, "structs")
+}
+#[test]
+fn method_calls() -> anyhow::Result<()> {
     let input = "x = 500.sqrt";
-    test(input, "test_method_calls")
+    test(input, "method_calls")
 }
 #[test]
-fn test_paths() -> anyhow::Result<()> {
+fn enum_destructuring() -> anyhow::Result<()> {
+    let input = "Some((name, _)) = Y";
+    test(input, "enum_destructuring")
+}
+#[test]
+fn struct_destructuring() -> anyhow::Result<()> {
+    let input = "Person(name# (name, _), pattern# _) = Y";
+    test(input, "struct_destructuring")
+}
+#[test]
+fn array_destructuring() -> anyhow::Result<()> {
+    let input = "[a,b,c..d] = Y";
+    test(input, "array_destructuring")
+}
+#[test]
+fn paths() -> anyhow::Result<()> {
     let input = "x =std::core::rnd(crate::here::info)";
-    test(input, "test_paths")
+    test(input, "paths")
 }
 #[test]
-fn test_struct_construction() -> anyhow::Result<()> {
+fn struct_construction() -> anyhow::Result<()> {
     let input = r#"x = Dude { name= "Kevin", mood= Mood::Sadge}"#;
-    test(input, "test_struct_construction")
+    test(input, "struct_construction")
 }
 #[test]
-fn test_enum_construction() -> anyhow::Result<()> {
+fn enum_construction() -> anyhow::Result<()> {
     let input = "x = Some(24)";
-    test(input, "test_enum_construction")
+    test(input, "enum_construction")
 }
 #[test]
-fn test_loops() -> anyhow::Result<()> {
+fn loops() -> anyhow::Result<()> {
     let input = "loop (
         a = 5
         return 3
         continue
     \n)";
-    test(input, "test_loops")
+    test(input, "loops")
 }
 #[test]
-fn test_return() -> anyhow::Result<()> {
+fn r#return() -> anyhow::Result<()> {
     let input = "return 3";
-    test(input, "test_return")
+    test(input, "return")
 }
 #[test]
-fn test_continue() -> anyhow::Result<()> {
+fn r#continue() -> anyhow::Result<()> {
     let input = "loop (continue)";
-    test(input, "test_continue")
+    test(input, "continue")
 }
 #[test]
-fn test_function_definitions() -> anyhow::Result<()> {
+fn function_definitions() -> anyhow::Result<()> {
     let input = "draw: 
     state #SnekGame, 
     frame #Canvas, 
-    window #Window; int( 
+    window #Window; int ( 
          a-4 *3
     )";
-    test(input, "test_function_definitions")
+    test(input, "function_definitions")
 }
 
 #[test]
-fn test_span() -> anyhow::Result<()> {
+fn span() -> anyhow::Result<()> {
     let input = "x = 0..500\n";
-    test(input, "test_span")
+    test(input, "span")
 }
 #[test]
-fn test_use() -> anyhow::Result<()> {
+fn import() -> anyhow::Result<()> {
     let input = r"use foo/bar/baz";
-    test(input, "test_use")
+    test(input, "use")
 }
 #[test]
-fn test_separator() -> anyhow::Result<()> {
+fn separator() -> anyhow::Result<()> {
     let input = r"x = 50
         g = print(ksjdfo) ";
-    test(input, "test_separator")
+    test(input, "separator")
 }
 #[test]
-fn test_angery_case() -> anyhow::Result<()> {
+fn angery_case() -> anyhow::Result<()> {
     let input = r"x = 50.sqrt
         y = ksjdfo
         _ = print(Works)";
-    test(input, "test_angery_case")
+    test(input, "angery_case")
 }
 #[test]
-fn test_assign() -> anyhow::Result<()> {
+fn assign() -> anyhow::Result<()> {
     let input = "\nx = 5 + 5 * (69 +420)";
-    test(input, "test_assign")
+    test(input, "assign")
 }
 #[test]
-fn test_else() -> anyhow::Result<()> {
+fn r#else() -> anyhow::Result<()> {
     let input = "x = (24 + 4 else (x = 5))";
-    test(input, "test_else")
+    test(input, "else")
 }
 #[test]
-fn test_bool_expr() -> anyhow::Result<()> {
+fn bool_expr() -> anyhow::Result<()> {
     let input = r"y = 4 == 4 and 5 <= (5 + 1)";
-    test(input, "test_bool_expr")
+    test(input, "bool_expr")
 }
 #[test]
-fn test_call() -> anyhow::Result<()> {
+fn call() -> anyhow::Result<()> {
     let input = r"x = foo.bar(test)";
-    test(input, "test_call")
+    test(input, "call")
 }
 #[test]
-fn test_string() -> anyhow::Result<()> {
+fn string() -> anyhow::Result<()> {
     let input = r#"g = "Hi!""#;
-    test(input, "test_string")
+    test(input, "string")
 }
-
 #[test]
-fn test_multiple_statements() -> anyhow::Result<()> {
+fn r#match() -> anyhow::Result<()> {
+    let input = "x = match Some(x) on Some(e) -> e, None -> panic();";
+    test(input, "match")
+}
+#[test]
+fn multiple_statements() -> anyhow::Result<()> {
     let input = "z = (
      x = 4+5
         x = 32
     )";
-    test(input, "test_multiple_expressions")
+    test(input, "multiple_expressions")
 }
 #[test]
-fn test_conditions() -> anyhow::Result<()> {
+fn conditions() -> anyhow::Result<()> {
     let input = r"g = if (4 == 4) then (x = 3)";
-    test(input, "test_conditions")
+    test(input, "conditions")
 }
 #[test]
-fn test_conditions_inverted_parens() -> anyhow::Result<()> {
+fn conditions_inverted_parens() -> anyhow::Result<()> {
     let input = "l = if 4 == 4 then (n = 2.pass)";
-    test(input, "test_conditions_inverted_parens")
+    test(input, "conditions_inverted_parens")
 }
 #[test]
-fn test_multiple_calls() -> anyhow::Result<()> {
+fn multiple_calls() -> anyhow::Result<()> {
     let input = r"m = lambda(3)(5).add(helo)";
-    test(input, "test_multiple_calls")
+    test(input, "multiple_calls")
 }
 #[test]
-fn test_call_string() -> anyhow::Result<()> {
-    let input = r#"m = print ("foo")"#;
-    test(input, "test_call_string")
+fn call_multiple_args() -> anyhow::Result<()> {
+    let input = r#"m = print ("foo", 5, false)"#;
+    test(input, "call_string")
 }
 #[test]
-fn test_math_operation() -> anyhow::Result<()> {
+fn math_operation() -> anyhow::Result<()> {
     let input = r"x = 2+7/(3+4)";
-    test(input, "test_math_operation")
+    test(input, "math_operation")
 }
 fn test(input: &str, name: &'static str) -> anyhow::Result<()> {
     let mut colors = ColorGenerator::new();

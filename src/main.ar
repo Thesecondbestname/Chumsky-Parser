@@ -8,7 +8,7 @@ struct SnekGame:
     snek# [boardsize, [boardsize, bool]] 
     direction# Direction 
     coordinate#head,
-    int# length 
+    int# length, 
      
     impl:
         #update: self; 
@@ -85,4 +85,7 @@ enum Direction:
     ;
 ;
 
-
+row, x_row = state.snek.enumerate()
+z = loop: row, x_row (
+    _ = if row.is_empty then return () else continue (row.next, x_row.next)
+)
