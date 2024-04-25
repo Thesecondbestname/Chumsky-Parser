@@ -1,10 +1,9 @@
 use crate::ast::{Block, BlockElement, Expression};
 use crate::convenience_types::{Error, ParserInput, Spanned};
-use crate::item_parser::item_parser;
+use crate::expression::expression;
+use crate::item::item_parser;
 use crate::lexer::{lex_sketchy_program, Lex, LexError};
-use crate::parsers::expression_parser;
 use crate::span_functions::empty_span;
-use crate::util_parsers::{extra_delimited, newline};
 use crate::Token;
 use chumsky::prelude::*;
 use chumsky::span::Span;
@@ -18,20 +17,13 @@ pub fn block_parser<'tokens, 'src: 'tokens>() -> impl Parser<
 > + Clone {
     // import, function, statement
     let x = recursive(|block| {
-        // let delim_expr = extra_delimited(expression_parser(block.clone()));
-        let block_element = 
-            // choice((
-            item_parser(expression_parser(block.clone()))
+        let block_element = item_parser(expression(block.clone()))
             .map_with(|item, ctx| BlockElement::Item((item, ctx.span())));
-            // ))
-        // I want to return a parser that parses expressions to allow for things like (23 -3) + 45
-        // But for the top level I need a parser that does not allow this. We don't want print() without an assignment...
         return block_element.map_with(|expr, ctx| (expr, ctx.span()));
     });
-    x
-.repeated()
-.collect::<Vec<_>>()
-.map_with(|items, ctx| (Expression::Block(Block(items)), ctx.span()))
+    x.repeated()
+        .collect::<Vec<_>>()
+        .map_with(|items, ctx| (Expression::Block(Block(items)), ctx.span()))
 }
 // ----- STATES ----
 #[derive(Default, Clone)]
@@ -133,7 +125,8 @@ impl<'a, 'i: 'a, P> SketchyParserBuilder<'i, Initialized, Lexed, P> {
     }
     pub fn parse_sketchy_programm(self) -> ParserResult<'a, 'i> {
         let input = &self.tokens.0;
-        let parse = block_parser().parse(input.as_slice().spanned((input.len()..input.len()).into()));
+        let parse =
+            block_parser().parse(input.as_slice().spanned((input.len()..input.len()).into()));
         let (ast, errs) = parse.into_output_errors();
         if let Some(ast) = ast {
             if errs.is_empty() {

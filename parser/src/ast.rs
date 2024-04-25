@@ -1,4 +1,5 @@
 use crate::convenience_types::Spanned;
+use displaydoc::Display;
 
 #[derive(Debug, Clone)]
 pub enum Instruction {
@@ -16,9 +17,22 @@ pub enum BlockElement {
 
 #[derive(Debug, Clone)]
 pub struct Block(pub Vec<Spanned<BlockElement>>);
-
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct Ident(pub Vec<Spanned<String>>);
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub enum Pattern {
+    Name(Name),
+    Enum(Ident, Vec<Spanned<Pattern>>),
+    Struct(Ident, Vec<(Spanned<Name>, Spanned<Pattern>)>),
+    Tuple(Vec<Spanned<Pattern>>),
+    Array(Vec<Spanned<Pattern>>, Name),
+}
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub enum Name {
+    Name(Vec<Spanned<String>>),
+    Underscore,
+}
 
 #[derive(Debug, Clone)]
 pub enum Item {
@@ -30,7 +44,7 @@ pub enum Item {
     Assingment(Spanned<VariableDeclaration>),
 }
 #[derive(Debug, Clone)]
-pub struct VariableDeclaration(pub String, pub Spanned<Expression>);
+pub struct VariableDeclaration(pub Spanned<Pattern>, pub Spanned<Expression>);
 #[derive(Debug, Clone)]
 /// Here is where a function is defined
 pub struct FunctionDeclaration {
@@ -60,6 +74,7 @@ pub struct EnumVariantDeclaration {
 pub struct StructDeclaration {
     pub name: String,
     pub fields: Vec<Spanned<StructField>>,
+    pub impl_blocks: Vec<(Option<String>, Spanned<FunctionDeclaration>)>,
 }
 #[derive(Debug, Clone)]
 pub struct StructField {
@@ -69,8 +84,6 @@ pub struct StructField {
 #[derive(Debug, Clone)]
 pub enum Statement {
     ParserError,
-    /// Whhere Variables are declared! Order is Name,Value but without optional Type
-    VariableDeclaration(String, Box<Spanned<Expression>>),
     /// Control Flow! This shit doesn't return anything, rather the expression inside
     Break(Box<Spanned<Expression>>),
     /// Loop statement, takes only a codeblock. Might consider making this an expression giving the value after return.
@@ -81,13 +94,15 @@ pub enum Statement {
     Continue,
     /// This is the one where a struct is actually constructed
     WhileLoop(Spanned<Expression>, Vec<Spanned<Expression>>),
-    /// An expression whose return type is ignored is a statement
-    Expression(Expression),
 }
 #[derive(Clone, Debug)]
 pub enum Expression {
     ParserError,
     If(Box<If>),
+    Match {
+        condition: Box<Spanned<Expression>>,
+        arms: Vec<(Spanned<Pattern>, Spanned<Expression>)>,
+    },
     Ident(Ident),
     List(Vec<Self>),
     FunctionCall(Box<Spanned<Self>>, Vec<Spanned<Self>>),
@@ -106,7 +121,7 @@ pub enum Expression {
 
 #[derive(Debug, Clone)]
 pub struct If {
-    pub(crate) condition: Box<Spanned<Expression>>,
+    pub(crate) condition: Spanned<Expression>,
     pub(crate) code_block: Spanned<Expression>,
 }
 #[derive(Clone, Debug)]
@@ -132,19 +147,28 @@ pub enum MathOp {
     Div,
     Mul,
 }
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, Display)]
 pub enum ComparisonOp {
+    /// >
     Lt,
+    /// <
     Gt,
+    /// >=
     Lte,
+    /// <=
     Gte,
+    /// !=
     Neq,
+    /// ==
     Eq,
 }
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, Display)]
 pub enum BinaryOp {
+    /// &&
     And,
+    /// ||
     Or,
+    /// !|
     Xor,
 }
 /// All the type primitives. These do not contain values, rather they denote that a given type
@@ -165,11 +189,6 @@ pub enum Type {
 pub enum Number {
     Int(i64),
     Float(f64),
-}
-#[derive(Debug, Clone)]
-pub struct Span {
-    pub(crate) begin: Number,
-    pub(crate) end: Number,
 }
 crate::impl_display!(Value, |s: &Value| match s {
     Value::String(string) => string.to_string(),
@@ -204,21 +223,25 @@ crate::impl_display!(Expression, |s: &Expression| {
             format!("({} {} {})", a.0, b, c.0)
         }
         Expression::Value(a) => format!("{a}"),
-        Expression::Ident(a) => format!("<{a}>"),
+        Expression::Ident(a) => format!("{a}"),
         Expression::ParserError => "Error".to_string(),
         Expression::FunctionCall(called, args) => format!(
-            "{{{}({})}}",
+            "{{{}({}{})}}",
             called.0,
-            args.iter().fold(String::new(), |acc, a| format!(
-                "{acc} {}",
-                format!("{},", a.0)
+            args.iter()
+                .next()
+                .map(|s| s.0.to_string())
+                .unwrap_or("".to_string()),
+            args.iter().skip(1).fold(String::new(), |acc, a| format!(
+                "{acc}, {}",
+                format!("{}", a.0)
             ))
         ),
         Expression::MethodCall(on, name, args) => {
             format!(
                 "{{{}.{}({})}}",
-                name,
                 on.0,
+                name,
                 args.iter().fold(String::new(), |acc, a| format!(
                     "{acc} {}",
                     format!("{},", a.0)
@@ -227,12 +250,18 @@ crate::impl_display!(Expression, |s: &Expression| {
         }
         Expression::Block(block) => format!("{block}"),
         Expression::If(if_) => format!("{if_}"),
-        Expression::Comparison(lhs, op, rhs) => format!("({} {op:?} {})", lhs.0, rhs.0),
-        Expression::Binary(a, op, b) => format!("({:?} {} {})", op, a.0, b.0),
-        Expression::Else(c, e) => format!("{} else {}", c.0, e.0),
+        Expression::Comparison(lhs, op, rhs) => format!("({} {op} {})", lhs.0, rhs.0),
+        Expression::Binary(a, op, b) => format!("({} {op} {})", a.0, b.0),
+        Expression::Else(c, e) => format!("{} else ({})", c.0, e.0),
         Expression::UnaryBool(e) => format!("!{}", e.0),
         Expression::UnaryMath(e) => format!("-{}", e.0),
         Expression::Unit => "Dis weird aah heal".to_owned(),
+        Expression::Match { condition, arms } => format!(
+            "match {} {{{}}}",
+            condition.0,
+            arms.iter().fold(String::new(), |acc, it| acc
+                + &format!("{} => {},", it.0 .0, it.1 .0))
+        ),
         fuck => format!("Not yet implemented to display {fuck:#?}"),
     }
 });
@@ -260,20 +289,18 @@ crate::impl_display!(BlockElement, |s: &BlockElement| {
     }
 });
 crate::impl_display!(Ident, |s: &Ident| {
-    return s
-        .0
-        .iter()
+    s.0.iter()
         .map(|x| x.0.clone())
         .collect::<Vec<_>>()
-        .join("::");
+        .join("::")
 });
 crate::impl_display!(Type, |s: &Type| {
     match s {
         Type::Int => "integer".to_owned(),
-        Type::Bool => "boolean".to_owned(),
+        Type::Bool => "boo".to_owned(),
         Type::Float => "float".to_owned(),
-        Type::String => "string".to_owned(),
-        Type::Array(_, _) => "array".to_owned(),
+        Type::String => "String".to_owned(),
+        Type::Array(ty, size) => format!("[{ty};{size}]"),
         Type::Tuple(t) => format!("({:?})", t),
         Type::Char => "char".to_owned(),
         Type::Span => "span".to_owned(),
@@ -287,7 +314,7 @@ crate::impl_display!(StructDeclaration, |s: &StructDeclaration| {
         .map(|x| format!("{}: {}", x.0.name.0.clone(), x.0.r#type.0.clone()))
         .collect::<Vec<_>>()
         .join(",");
-    format!("{0} {{ {fields}}}", s.name)
+    format!("struct {0} {{ {fields}}}", s.name)
 });
 crate::impl_display!(Item, |s: &Item| {
     match s {
@@ -314,10 +341,75 @@ crate::impl_display!(Item, |s: &Item| {
                 .fold(String::new(), |acc, (a, _)| format!("{acc}::{a}"))
         ),
         Item::Enum((EnumDeclaration { name, variants }, _)) => {
-            format!("enum {} {{{:?}}}", name, variants)
+            format!(
+                "enum {} {{{}}}",
+                name,
+                variants.iter().fold(String::new(), |acc, (v, _)| acc
+                    + &format!(
+                        "{}: {}",
+                        v.name,
+                        v.r#type
+                            .clone()
+                            .map(|a| a.to_string())
+                            .unwrap_or("_".to_string())
+                    ))
+            )
         }
         Item::Struct((struct_, _)) => format!("{struct_}"),
-        Item::Assingment((decl, _)) => format!("let {} = {};", decl.0, decl.1 .0),
+        Item::Assingment((decl, _)) => format!("let {} = {};", decl.0 .0, decl.1 .0),
+    }
+});
+crate::impl_display!(Name, |s: &Name| {
+    match s {
+        Name::Name(name) => format!(
+            "{}{}",
+            name.iter().next().unwrap().0,
+            name.iter()
+                .skip(1)
+                .fold(String::new(), |acc, a| format!("{acc}::{}", a.0))
+        ),
+        Name::Underscore => "_".to_string(),
+    }
+});
+crate::impl_display!(Pattern, |s: &Pattern| {
+    match s {
+        Pattern::Enum(name, pattern) => {
+            format!(
+                "{} ({})",
+                name,
+                pattern
+                    .iter()
+                    .fold(String::new(), |acc, a| acc + &a.0.to_string())
+            )
+        }
+        Pattern::Struct(name, pat) => format!(
+            "{name}{{{}{}}}",
+            format!(
+                "{}:{}",
+                pat.iter().next().unwrap().0 .0,
+                pat.iter().next().unwrap().1 .0
+            ),
+            pat.iter()
+                .skip(1)
+                .fold(String::new(), |acc, (name, pat)| acc
+                    + &format!(", {}: {}", name.0, pat.0))
+        ),
+        Pattern::Tuple(tuple) => format!(
+            "({}{})",
+            tuple.iter().next().unwrap().0,
+            tuple
+                .iter()
+                .skip(1)
+                .fold(String::new(), |acc, a| acc + ", " + &a.0.to_string())
+        ),
+        Pattern::Array(pats, end) => format!(
+            "[{}{}..{end}]",
+            pats.iter().next().unwrap().0,
+            pats.iter()
+                .skip(1)
+                .fold(String::new(), |acc, b| format!("{}, {}", acc, b.0))
+        ),
+        Pattern::Name(name) => name.to_string(),
     }
 });
 crate::impl_display!(Statement, |s: &Statement| {
@@ -327,9 +419,7 @@ crate::impl_display!(Statement, |s: &Statement| {
         Statement::Loop(blocc) => format!("loop ({});", blocc.0),
         Statement::Return(val) => format!("return {};", val.0),
         Statement::Continue => "continue;".to_string(),
-        Statement::VariableDeclaration(name, e) => format!("{name} = {};", e.0),
         Statement::WhileLoop(_, _) => todo!(),
-        Statement::Expression(e) => format!("{e}"),
         _ => String::new(),
     }
 });
@@ -393,12 +483,4 @@ macro_rules! impl_to_Instruction_nolife {
             }
         }
     };
-}
-/// Trait that turns something arbitrary into an Expression.
-pub trait ToInstruction {
-    fn into_instruction(self) -> Instruction;
-}
-pub fn i32_to_f32(num1: i32, num2: i32) -> f64 {
-    let result = format!("{num1}.{num2}");
-    result.parse::<f64>().unwrap()
 }

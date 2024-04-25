@@ -1,4 +1,4 @@
-use crate::ast::{self, Ident, Type};
+use crate::ast::{self, Ident, Name, Pattern, Type};
 use crate::convenience_types::{Error, ParserInput, Spanned};
 use crate::Token;
 use chumsky::prelude::*;
@@ -102,4 +102,61 @@ pub fn newline<'tokens, 'src: 'tokens>() -> impl Parser<
         just(Token::Lparen).rewind().ignored(),
     ))
     .labelled("Separator")
+}
+pub fn pattern<'tokens, 'src: 'tokens>() -> impl Parser<
+    'tokens,
+    ParserInput<'tokens, 'src>, // Input
+    Spanned<Pattern>,           // Output
+    Error<'tokens>,             // Error Type
+> + Clone {
+    let pattern = recursive(|pattern| {
+        let name_pattern = ident_parser()
+            .map(|ident| {
+                let Ident(s) = ident;
+                if "_" == s[0].0 && s.len() == 1 {
+                    Name::Underscore
+                } else {
+                    Name::Name(s)
+                }
+            })
+            .labelled("name");
+        let tuple_destructure = pattern
+            .clone()
+            .separated_by(just(Token::Comma))
+            .collect()
+            .delimited_by(just(Token::Lparen), just(Token::Rparen))
+            .labelled("Tuple destructure");
+        let enum_destructure = ident_parser()
+            .then(tuple_destructure.clone())
+            .labelled("Enum Destructure");
+        let struct_destructure = ident_parser()
+            .then(
+                name_pattern
+                    .clone()
+                    .map_with(|pat, ctx| (pat, ctx.span()))
+                    .then_ignore(just(Token::Hashtag))
+                    .then(pattern.clone())
+                    .separated_by(just(Token::Comma))
+                    .collect()
+                    .delimited_by(just(Token::Lparen), just(Token::Rparen)),
+            )
+            .labelled("Struct Destructure");
+        let array_destructure = pattern
+            .clone()
+            .separated_by(just(Token::Comma))
+            .collect::<Vec<_>>()
+            .then_ignore(just(Token::DoubleDot))
+            .then(name_pattern.clone())
+            .delimited_by(just(Token::Lbucket), just(Token::Rbucket))
+            .labelled("Array destructure");
+        choice((
+            struct_destructure.map(|(name, b)| Pattern::Struct(name, b)),
+            enum_destructure.map(|(name, pat)| Pattern::Enum(name, pat)),
+            tuple_destructure.map(|pat| Pattern::Tuple(pat)),
+            name_pattern.map(Pattern::Name),
+            array_destructure.map(|(pats, end)| Pattern::Array(pats, end)),
+        ))
+        .map_with(|pat, ctx| (pat, ctx.span()))
+    });
+    pattern
 }

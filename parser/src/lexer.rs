@@ -65,19 +65,18 @@ pub enum Token {
     Then,
     #[token("continue")]
     Continue,
+    #[token("impl")]
+    Impl,
     #[token("break")]
     Break,
     #[token("return")]
     Return,
     #[token("enum")]
     Enum,
-    #[token("type")]
-    /// type
-    TypeToken,
-    #[token("const")]
-    Const,
     #[token("==")]
     Eq,
+    #[token("->")]
+    Arrow,
     #[token("on")]
     On,
     #[token("match")]
@@ -88,6 +87,8 @@ pub enum Token {
     Gt,
     #[token("<=")]
     Gte,
+    #[token("..")]
+    DoubleDot,
     #[regex(r"(\d+)\.\.(\d+)", |lex| parse_span(lex.slice().to_string()))]
     Span(Span),
     #[regex("[a-zA-Z_öäü][a-zA-Z0-9_öäü]*", |lex| lex.slice().to_string())]
@@ -136,14 +137,17 @@ pub enum Token {
     /// }
     #[token("}")]
     Rbracket,
+    /// ]
+    #[token("]")]
+    Rbucket,
+    /// [
+    #[token("[")]
+    Lbucket,
     /// )
     #[token(")")]
     Rparen,
     #[token(";")]
     Semicolon,
-    /// :3
-    #[token(":3")]
-    StmtCast,
     #[token("struct")]
     Struct,
     #[token("-")]
@@ -217,10 +221,6 @@ fn parse_escaped_ident(inp: String) -> String {
     inp.trim_start_matches('r').trim_matches('#').to_string()
 }
 
-fn parse_escaped_string(inp: String) -> String {
-    let raw_inp = inp.trim_start_matches('r').trim_matches('#');
-    return raw_inp.trim_matches('\"').to_string();
-}
 impl_display!(Token, |s: &Token| {
     match s {
         Token::Plus => "+".to_owned(),
@@ -238,8 +238,6 @@ impl_display!(Token, |s: &Token| {
         Token::Break => "break".to_owned(),
         Token::Return => "return".to_owned(),
         Token::Enum => "enum".to_owned(),
-        Token::TypeToken => "type".to_owned(),
-        Token::Const => "const".to_owned(),
         Token::Eq => "==".to_owned(),
         Token::False => "false".to_owned(),
         Token::Gt => ">".to_owned(),
@@ -264,7 +262,6 @@ impl_display!(Token, |s: &Token| {
         Token::Rbracket => "}".to_owned(),
         Token::Rparen => ")".to_owned(),
         Token::Semicolon => ";".to_owned(),
-        Token::StmtCast => ":3".to_owned(),
         Token::Struct => "struct".to_owned(),
         Token::Minus => "-".to_owned(),
         Token::True => "true".to_owned(),
@@ -276,5 +273,10 @@ impl_display!(Token, |s: &Token| {
         Token::On => "on".to_owned(),
         Token::Match => "match".to_owned(),
         Token::Then => "then".to_owned(),
+        Token::Impl => "impl".to_owned(),
+        Token::DoubleDot => "..".to_owned(),
+        Token::Rbucket => "]".to_owned(),
+        Token::Lbucket => "[".to_owned(),
+        Token::Arrow => "->".to_owned(),
     }
 });

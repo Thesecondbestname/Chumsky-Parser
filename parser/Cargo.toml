@@ -7,8 +7,9 @@ edition = "2021"
 
 [dependencies]
 anyhow = "1.0.80"
+displaydoc = "*"
 logos = "0.13.0"
-thiserror = "1.0.57"
+thiserror = "1.0.59"
 
 [dependencies.chumsky]
 git = "https://github.com/zesterer/chumsky"

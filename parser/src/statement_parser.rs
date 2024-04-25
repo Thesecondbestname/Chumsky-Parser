@@ -54,15 +54,13 @@ where
             .labelled("loop statement")
             .as_context();
         choice((
-            expr.clone()
-                .then_ignore(just(Token::StmtCast))
-                .map(|(expr, span)| (Statement::Expression(expr), span)),
+            // expr.clone()
+            //     .then_ignore(just(Token::StmtCast))
+            //     .map(|(expr, span)| (Statement::Expression(expr), span)),
             loop_.map_with(|stmnt: Statement, ctx| (stmnt, ctx.span())),
             continue_.map_with(|stmnt: Statement, ctx| (stmnt, ctx.span())),
             break_.map_with(|stmnt: Statement, ctx| (stmnt, ctx.span())),
             return_.map_with(|stmnt: Statement, ctx| (stmnt, ctx.span())),
-            // expr.clone()
-            //     .map(|(expr, span)| (Statement::Expression(expr), span)),
             // TODO: Add recovery here in case user forgets the stmt cast
         ))
     };

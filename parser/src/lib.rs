@@ -2,8 +2,8 @@
 use chumsky::prelude::Rich;
 pub use lexer::Token;
 mod ast;
-mod expression_parser;
-mod item_parser;
+mod expression;
+mod item;
 mod lexer;
 mod parser;
 mod statement_parser;
@@ -34,13 +34,8 @@ pub mod span_functions {
         SimpleSpan::from(range.clone())
     }
 }
-mod parsers {
-    pub use crate::{
-        expression_parser::expressions::expression_parser, statement_parser::statement_parser,
-    };
-}
 mod convenience_parsers {
-    pub use super::util_parsers::{name_parser, separator, type_parser};
+    pub use super::util_parsers::{name_parser, pattern, separator, type_parser};
 }
 #[cfg(test)]
 mod tests {}
