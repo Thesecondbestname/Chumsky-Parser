@@ -1,6 +1,5 @@
 #![allow(non_snake_case)]
-use ariadne::{Color, Label, Report, ReportKind, Source};
-use colored::Colorize;
+use ariadne::{Color, ColorGenerator, Label, Report, ReportKind, Source};
 use parser::{OutputError, OutputType, SketchyParser};
 mod tests;
 
@@ -36,7 +35,18 @@ fn main() -> anyhow::Result<()> {
         .input(input_verified, "main")
         .lex_sketchy_programm()
         .print_errors(|span, token, input, name| {
-            println!("{} in span {span:?} with {token:?} at", "ERROR: ".red(),);
+            let mut colors = ColorGenerator::new();
+            let a = colors.next();
+            Report::build(ReportKind::Error, name, 12)
+                .with_message(format!("Error while lexing test {input}"))
+                .with_label(
+                    Label::new((name, span.start - 1..span.end - 1.clone()))
+                        .with_message(format!("Found unexpected Token {token} at {span:?}"))
+                        .with_color(a),
+                )
+                .finish()
+                .eprint((name, Source::from(input)))
+                .expect("Falied to build report!");
         })
         .into_result()?
         .remove_duplicate_newline()

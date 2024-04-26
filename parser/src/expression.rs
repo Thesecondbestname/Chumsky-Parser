@@ -1,7 +1,5 @@
 #[allow(clippy::too_many_lines)]
-use crate::ast::{
-    BinaryOp, Block, BlockElement, ComparisonOp, Expression, If, MathOp, Number, Value,
-};
+use crate::ast::{BinaryOp, Block, ComparisonOp, Expression, If, Item, MathOp, Number, Value};
 use crate::convenience_types::{Error, ParserInput, Spanned};
 use crate::util_parsers::{
     extra_delimited, ident_parser, name_parser, refutable_pattern, separator,
@@ -18,9 +16,7 @@ pub fn expression<'tokens, 'src: 'tokens, T>(
     Error<'tokens>,             // Error Type
 > + Clone)
 where
-    T: Parser<'tokens, ParserInput<'tokens, 'src>, Spanned<BlockElement>, Error<'tokens>>
-        + Clone
-        + 'tokens,
+    T: Parser<'tokens, ParserInput<'tokens, 'src>, Spanned<Item>, Error<'tokens>> + Clone + 'tokens,
 {
     let ident = ident_parser();
     let delim_block = extra_delimited(stmt.repeated().collect::<Vec<_>>())

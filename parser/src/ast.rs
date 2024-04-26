@@ -8,15 +8,7 @@ pub enum Instruction {
 }
 
 #[derive(Debug, Clone)]
-pub enum BlockElement {
-    Item(Spanned<Item>),
-    Statement(Spanned<Statement>),
-    /// An expression cast to a statement with a :3
-    SilentExpression(Spanned<Expression>),
-}
-
-#[derive(Debug, Clone)]
-pub struct Block(pub Vec<Spanned<BlockElement>>);
+pub struct Block(pub Vec<Spanned<Item>>);
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct Ident(pub Vec<Spanned<String>>);
 
@@ -289,14 +281,6 @@ crate::impl_display!(If, |s: &If| {
     } = s;
     format!("if {} then {})", condition.0, blocc.0)
 });
-crate::impl_display!(BlockElement, |s: &BlockElement| {
-    match s {
-        BlockElement::Item(item) => format!("{}", item.0),
-        // HACK: THIS IS EXTREEEMELY VOLATILE it will overflow the stack if captured
-        BlockElement::Statement(stmt) => format!("{}", stmt.0),
-        BlockElement::SilentExpression(expr) => format!("{}", expr.0),
-    }
-});
 crate::impl_display!(Ident, |s: &Ident| {
     s.0.iter()
         .map(|x| x.0.clone())
@@ -392,7 +376,19 @@ crate::impl_display!(Item, |s: &Item| {
         }
         Item::Struct((struct_, _)) => format!("{struct_}"),
         Item::Assingment((decl, _)) => format!("let {} = {};", decl.0 .0, decl.1 .0),
-        Item::Trait(_) => todo!(),
+        Item::Trait((Trait(a, b), _)) => format!(
+            "trait {a} {{{}}}",
+            b.iter()
+                .map(|a| format!(
+                    "fn {}({}) -> {}",
+                    a.0 .0,
+                    a.0 .1
+                        .iter()
+                        .fold(String::new(), |acc, b| format!("{},{acc}", b.0)),
+                    a.0 .2 .0
+                ))
+                .fold(String::new(), |acc, b| format!("{b},{acc}"))
+        ),
     }
 });
 crate::impl_display!(Name, |s: &Name| {

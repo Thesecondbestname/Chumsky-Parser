@@ -1,4 +1,4 @@
-use crate::ast::{Block, BlockElement, Expression};
+use crate::ast::{Block, Expression, Item};
 use crate::convenience_types::{Error, ParserInput, Spanned};
 use crate::expression::expression;
 use crate::item::item_parser;
@@ -17,9 +17,8 @@ pub fn block_parser<'tokens, 'src: 'tokens>() -> impl Parser<
 > + Clone {
     // import, function, statement
     let x = recursive(|block| {
-        let block_element = item_parser(expression(block.clone()))
-            .map_with(|item, ctx| BlockElement::Item((item, ctx.span())));
-        return block_element.map_with(|expr, ctx| (expr, ctx.span()));
+        let block_element = item_parser(expression(block.clone()));
+        block_element.map_with(|expr, ctx| (expr, ctx.span()))
     });
     x.repeated()
         .collect::<Vec<_>>()
