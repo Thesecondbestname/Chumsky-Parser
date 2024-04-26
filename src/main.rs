@@ -2,7 +2,6 @@
 use ariadne::{Color, Label, Report, ReportKind, Source};
 use colored::Colorize;
 use parser::{OutputError, OutputType, SketchyParser};
-mod compiler;
 mod tests;
 
 fn main() -> anyhow::Result<()> {
@@ -10,7 +9,7 @@ fn main() -> anyhow::Result<()> {
     use io_print
     x = xöla
     y = 69 / (56 - 0.45)
-    print(Works?)
+    print(Works)
     enum Foo:
         baz
    ;
@@ -40,6 +39,7 @@ fn main() -> anyhow::Result<()> {
             println!("{} in span {span:?} with {token:?} at", "ERROR: ".red(),);
         })
         .into_result()?
+        .remove_duplicate_newline()
         .parse_sketchy_programm()
         .print_errors(print_error)
         .into_result()?
@@ -63,6 +63,11 @@ fn print_error(error: &OutputError, ast: &OutputType, input: &str, src_name: &st
     let found = error.found().unwrap_or(&parser::Token::Nothing);
     let note = if error.expected().next().is_none() {
         format!("Unexpected Token \"{error:?}\"")
+    } else if error.expected().count() == 1 {
+        format!(
+            r#"Expected {}but found "{found}""#,
+            error.expected().next().unwrap()
+        )
     } else {
         let expected = error
             .expected()
