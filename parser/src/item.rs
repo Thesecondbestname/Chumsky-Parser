@@ -1,6 +1,6 @@
 use crate::ast::{
     EnumDeclaration, EnumVariantDeclaration, Expression, FunctionDeclaration, Import, Item,
-    StructDeclaration, StructField, Type, VariableDeclaration,
+    StructDeclaration, StructField, Trait, TraitFns, Type, VariableDeclaration,
 };
 use crate::convenience_parsers::{name_parser, separator, type_parser};
 use crate::convenience_types::{Error, ParserInput, Spanned};
@@ -17,7 +17,7 @@ where
 {
     choice((
         assingment(block.clone())
-            .then_ignore(separator())
+            .then_ignore(newline())
             .map(Item::Assingment)
             .labelled("Assignment")
             .as_context(),
@@ -25,6 +25,11 @@ where
             .then_ignore(separator())
             .map(Item::Function)
             .labelled("Function")
+            .as_context(),
+        trait_parser()
+            .then_ignore(separator())
+            .map(Item::Trait)
+            .labelled("Trait")
             .as_context(),
         enum_parser(block.clone())
             .then_ignore(separator())
@@ -61,7 +66,7 @@ where
         .map_with(|name, ctx| (name, ctx.span()))
         .then_ignore(just(Token::Colon).then(separator()))
         .then(arguments)
-        .then_ignore(just(Token::Semicolon))
+        .then_ignore(just(Token::Semicolon).padded_by(separator()))
         .then(
             type_parser()
                 .map_with(|r#type, ctx| -> (Type, SimpleSpan) { (r#type, ctx.span()) })
@@ -121,8 +126,7 @@ where
                 .separated_by(separator())
                 .collect::<Vec<(Option<String>, Vec<Spanned<FunctionDeclaration>>)>>(),
         )
-        .then_ignore(separator())
-        .then_ignore(just(Token::Semicolon))
+        .then_ignore(just(Token::Semicolon).padded_by(separator()))
         .map_with(|((struct_name, fields), fns), ctx| {
             let fns = fns.into_iter().fold(
                 Vec::new(),
@@ -201,7 +205,7 @@ where
                 .separated_by(separator())
                 .collect::<Vec<(Option<String>, Vec<Spanned<FunctionDeclaration>>)>>(),
         )
-        .then_ignore(just(Token::Semicolon))
+        .then_ignore(just(Token::Semicolon).padded_by(separator()))
         .map_with(|((name, variants), fns), ctx| {
             let impl_blocks = fns.into_iter().fold(
                 Vec::new(),
@@ -251,14 +255,31 @@ where
     T: Parser<'tokens, ParserInput<'tokens, 'src>, Spanned<Expression>, Error<'tokens>> + Clone, // Statement
 {
     let assignment = irrefutable_pattern()
-        .labelled("Pattern")
-        .as_context()
         .then_ignore(just(Token::Assign))
         .then(expr)
-        // TODO: TEST IF COMMENTING OUT THIS LINE RESULTS IN ERRONIOUS PARSING
-        .then_ignore(newline())
         .map_with(|(name, val), ctx| -> (VariableDeclaration, SimpleSpan) {
             (VariableDeclaration(name, val), ctx.span())
         });
     assignment
+}
+pub fn trait_parser<'tokens, 'src: 'tokens>(
+) -> impl Parser<'tokens, ParserInput<'tokens, 'src>, Spanned<Trait>, Error<'tokens>> + Clone {
+    let fns = name_parser()
+        .then(
+            type_parser()
+                .map_with(|a, ctx| (a, ctx.span()))
+                .separated_by(just(Token::Comma))
+                .collect()
+                .delimited_by(just(Token::Colon), just(Token::Semicolon)),
+        )
+        .then(type_parser().map_with(|ty, ctx| (ty, ctx.span())))
+        .map_with(|((a, b), c), ctx| (TraitFns(a, b, c), ctx.span()));
+    just(Token::Trait)
+        .ignore_then(name_parser())
+        .then(
+            fns.separated_by(just(Token::Comma))
+                .collect()
+                .delimited_by(just(Token::Colon), just(Token::Semicolon)),
+        )
+        .map_with(|(a, b), ctx| (Trait(a, b), ctx.span()))
 }

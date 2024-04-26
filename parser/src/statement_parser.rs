@@ -1,8 +1,6 @@
 use crate::ast::{Expression, Statement, Value};
-use crate::convenience_parsers::name_parser;
 use crate::convenience_types::{Error, ParserInput, Spanned};
 use crate::lexer::Token;
-use crate::util_parsers::newline;
 use chumsky::prelude::*;
 
 pub fn statement_parser<'tokens, 'src: 'tokens, T>(

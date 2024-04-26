@@ -4,7 +4,7 @@ use crate::ast::{
 };
 use crate::convenience_types::{Error, ParserInput, Spanned};
 use crate::util_parsers::{
-    extra_delimited, ident_parser, irrefutable_pattern, name_parser, separator,
+    extra_delimited, ident_parser, name_parser, refutable_pattern, separator,
 };
 use crate::Token;
 use chumsky::prelude::*;
@@ -23,19 +23,6 @@ where
         + 'tokens,
 {
     let ident = ident_parser();
-    let int = select! { Token::Integer(v) => v }.labelled("Whole AAh integer");
-    let float = select! { Token::Float(v) => v }.labelled("Floating point");
-    let number = int
-        .map(|int| Expression::Value(Value::Number(Number::Int(int))))
-        .or(float.map(|float| Expression::Value(Value::Number(Number::Float(float)))));
-    let bool = select! {
-        Token::True=> Expression::Value(Value::Bool(true)),
-        Token::False => Expression::Value(Value::Bool(false))
-    }
-    .labelled("Boolean");
-    let string =
-        select! {Token::LiteralString(s) => Expression::Value(Value::String(s))}.labelled("String");
-    let span = select! {Token::Span(s) => Expression::Value(Value::Span(s.start, s.end))};
     let delim_block = extra_delimited(stmt.repeated().collect::<Vec<_>>())
         .map(|items| (Expression::Block(Block(items))))
         .labelled("Code block");
@@ -60,11 +47,8 @@ where
         let inline_expression = {
             // Atom which is the smallest expression.
             let atom = choice((
+                value(),
                 obj_construction,
-                number,
-                bool,
-                string,
-                span,
                 ident.clone().map(Expression::Ident),
                 delim_block,
             ))
@@ -278,12 +262,15 @@ where
             let r#match = just(Token::Match)
                 .ignore_then(expression.clone())
                 .then(
-                    irrefutable_pattern()
-                        .then_ignore(just(Token::Arrow))
+                    refutable_pattern()
+                        .then_ignore(just(Token::Then))
                         .then(expression)
                         .separated_by(just(Token::Comma).then(separator()))
                         .collect()
-                        .delimited_by(just(Token::On).then(separator()), just(Token::Semicolon)),
+                        .delimited_by(
+                            just(Token::If).then(separator()),
+                            just(Token::Semicolon).padded_by(separator()),
+                        ),
                 )
                 .map_with(|(condition, arms), ctx| {
                     (
@@ -300,4 +287,25 @@ where
         };
         inline_expression.boxed()
     })
+}
+pub fn value<'tokens, 'src: 'tokens>() -> impl Parser<
+    'tokens,
+    ParserInput<'tokens, 'src>, // Input
+    Expression,                 // Output
+    Error<'tokens>,             // Error Type
+> + Clone {
+    let int = select! { Token::Integer(v) => v }.labelled("Whole AAh integer");
+    let float = select! { Token::Float(v) => v }.labelled("Floating point");
+    let number = int
+        .map(|int| Expression::Value(Value::Number(Number::Int(int))))
+        .or(float.map(|float| Expression::Value(Value::Number(Number::Float(float)))));
+    let bool = select! {
+        Token::True=> Expression::Value(Value::Bool(true)),
+        Token::False => Expression::Value(Value::Bool(false))
+    }
+    .labelled("Boolean");
+    let string =
+        select! {Token::LiteralString(s) => Expression::Value(Value::String(s))}.labelled("String");
+    let span = select! {Token::Span(s) => Expression::Value(Value::Span(s.start, s.end))};
+    choice((number, bool, string, span))
 }

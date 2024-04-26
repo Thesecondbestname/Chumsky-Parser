@@ -31,9 +31,9 @@ fn basic_lex() -> anyhow::Result<()> {
         ;
     ;
     add: x#int, y#int; int (
-        match x on 
-            4 -> "four",
-            _ -> x + y
+        match x if 
+            4 then "four",
+            _ then x + y
         ;
     )
     // Some kinda idk  
@@ -89,6 +89,11 @@ fn struct_functions() -> anyhow::Result<()> {
 fn method_calls() -> anyhow::Result<()> {
     let input = "x = 500.sqrt";
     test(input, "method_calls")
+}
+#[test]
+fn traits() -> anyhow::Result<()> {
+    let input = "trait Add: add:int, int; int;";
+    test(input, "traits")
 }
 #[test]
 fn enum_destructuring() -> anyhow::Result<()> {
@@ -200,7 +205,7 @@ fn string() -> anyhow::Result<()> {
 }
 #[test]
 fn r#match() -> anyhow::Result<()> {
-    let input = "x = match Some(x) on Some(e) -> e, None -> panic();";
+    let input = "x = match Some(x) if Some(e) then e, None then panic();";
     test(input, "match")
 }
 #[test]

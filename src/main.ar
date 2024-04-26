@@ -13,18 +13,16 @@ struct SnekGame:
     impl:
         #update: self; 
         (
-            if self.apple == self.head (
+            if self.apple == self.head then (
                 self.length += 1
             )
-            if self.snek[self.head.0[self.head.1](
-                self.game_over
-            )
+            if self.snek[self.head.0[self.head.1] then self.game_over
             self.snek[self.head.0[self.head.1]] = true
-            match self.direction on
-                Direction::Up -> head.1++,
-                Direction::Down -> head.1--,
-                Direction::Right -> head.0++,
-                Direction::Left -> head.0
+            match self.direction if
+                Direction::Up then head.1++,
+                Direction::Down then head.1--,
+                Direction::Right then head.0++,
+                Direction::Left then head.0
             ;
         )
 	;
@@ -80,8 +78,8 @@ enum Direction:
     Down,
     Left,
     Right,
-    $default:
-        Self# default:(self__Right)
+    impl default:
+        default:;Self(self__Right)
     ;
 ;
 

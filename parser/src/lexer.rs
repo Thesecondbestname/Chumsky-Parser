@@ -61,6 +61,8 @@ pub enum Token {
     Slash,
     #[token("else")]
     Else,
+    #[token("trait")]
+    Trait,
     #[token("then")]
     Then,
     #[token("Self")]
@@ -77,10 +79,6 @@ pub enum Token {
     Enum,
     #[token("==")]
     Eq,
-    #[token("->")]
-    Arrow,
-    #[token("on")]
-    On,
     #[token("match")]
     Match,
     #[token("false")]
@@ -219,9 +217,6 @@ fn parse_span(inp: String) -> Span {
         end: nums.1.parse().expect("Lexer Error: Span regex fucked"),
     }
 }
-fn parse_escaped_ident(inp: String) -> String {
-    inp.trim_start_matches('r').trim_matches('#').to_string()
-}
 
 impl_display!(Token, |s: &Token| {
     match s {
@@ -272,14 +267,13 @@ impl_display!(Token, |s: &Token| {
         Token::Nothing => "Noting".to_owned(),
         Token::Lte => "<=".to_owned(),
         Token::Gte => ">=".to_owned(),
-        Token::On => "on".to_owned(),
         Token::Match => "match".to_owned(),
         Token::Then => "then".to_owned(),
         Token::Impl => "impl".to_owned(),
         Token::DoubleDot => "..".to_owned(),
         Token::Rbucket => "]".to_owned(),
         Token::Lbucket => "[".to_owned(),
-        Token::Arrow => "->".to_owned(),
         Token::Self_ => "self".to_owned(),
+        Token::Trait => "trait".to_owned(),
     }
 });

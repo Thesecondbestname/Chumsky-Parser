@@ -20,9 +20,10 @@ pub struct Block(pub Vec<Spanned<BlockElement>>);
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct Ident(pub Vec<Spanned<String>>);
 
-#[derive(Debug, Clone, PartialEq, Eq)]
+#[derive(Debug, Clone)]
 pub enum Pattern {
     Name(Name),
+    Value(Spanned<Expression>),
     Enum(Ident, Vec<Spanned<Pattern>>),
     Struct(Ident, Vec<(Spanned<Name>, Spanned<Pattern>)>),
     Tuple(Vec<Spanned<Pattern>>),
@@ -42,7 +43,13 @@ pub enum Item {
     Enum(Spanned<EnumDeclaration>),
     Struct(Spanned<StructDeclaration>),
     Assingment(Spanned<VariableDeclaration>),
+    Trait(Spanned<Trait>),
 }
+
+#[derive(Debug, Clone)]
+pub struct Trait(pub String, pub Vec<Spanned<TraitFns>>);
+#[derive(Debug, Clone)]
+pub struct TraitFns(pub String, pub Vec<Spanned<Type>>, pub Spanned<Type>);
 #[derive(Debug, Clone)]
 pub struct VariableDeclaration(pub Spanned<Pattern>, pub Spanned<Expression>);
 #[derive(Debug, Clone)]
@@ -385,6 +392,7 @@ crate::impl_display!(Item, |s: &Item| {
         }
         Item::Struct((struct_, _)) => format!("{struct_}"),
         Item::Assingment((decl, _)) => format!("let {} = {};", decl.0 .0, decl.1 .0),
+        Item::Trait(_) => todo!(),
     }
 });
 crate::impl_display!(Name, |s: &Name| {
@@ -438,6 +446,7 @@ crate::impl_display!(Pattern, |s: &Pattern| {
                 .fold(String::new(), |acc, b| format!("{}, {}", acc, b.0))
         ),
         Pattern::Name(name) => name.to_string(),
+        Pattern::Value(e) => e.0.to_string(),
     }
 });
 crate::impl_display!(Statement, |s: &Statement| {
@@ -448,7 +457,6 @@ crate::impl_display!(Statement, |s: &Statement| {
         Statement::Return(val) => format!("return {};", val.0),
         Statement::Continue => "continue;".to_string(),
         Statement::WhileLoop(_, _) => todo!(),
-        _ => String::new(),
     }
 });
 impl Number {

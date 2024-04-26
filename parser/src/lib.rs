@@ -35,7 +35,7 @@ pub mod span_functions {
     }
 }
 mod convenience_parsers {
-    pub use super::util_parsers::{irrefutable_pattern, name_parser, separator, type_parser};
+    pub use super::util_parsers::{name_parser, separator, type_parser};
 }
 #[cfg(test)]
 mod tests {}
