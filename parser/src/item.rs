@@ -1,11 +1,13 @@
 use crate::ast::{
     EnumDeclaration, EnumVariantDeclaration, Expression, FunctionDeclaration, Import, Item,
-    StructDeclaration, StructField, Trait, TraitFns, Type, VariableDeclaration,
+    Pattern, StructDeclaration, StructField, Trait, TraitFns, Type, VariableDeclaration,
 };
 use crate::convenience_parsers::{name_parser, separator, type_parser};
 use crate::convenience_types::{Error, ParserInput, Spanned};
 use crate::lexer::Token;
-use crate::util_parsers::{extra_delimited, irrefutable_pattern, newline, parameter_parser};
+use crate::util_parsers::{
+    extra_delimited, irrefutable_pattern, newline, parameter_parser, unexpected_newline,
+};
 
 use chumsky::prelude::*;
 
@@ -13,12 +15,17 @@ pub fn item_parser<'tokens, 'src: 'tokens, T>(
     block: T,
 ) -> (impl Parser<'tokens, ParserInput<'tokens, 'src>, Item, Error<'tokens>> + Clone)
 where
-    T: Parser<'tokens, ParserInput<'tokens, 'src>, Spanned<Expression>, Error<'tokens>> + Clone, // Statement
+    T: Parser<'tokens, ParserInput<'tokens, 'src>, Spanned<Expression>, Error<'tokens>>
+        + Clone
+        + 'tokens, // Statement
 {
     choice((
         assingment(block.clone())
             .then_ignore(newline())
             .map(Item::Assingment)
+            .recover_with(via_parser(
+                unexpected_newline().map_with(|_, ctx| (Item::TopLevelExprError)),
+            ))
             .labelled("Assignment")
             .as_context(),
         function_definition(block.clone())
@@ -81,7 +88,7 @@ where
                 body: block,
             },
         );
-    return function;
+    function
 }
 pub fn struct_parser<'tokens, 'src: 'tokens, T>(
     expr: T,
@@ -255,8 +262,13 @@ where
     T: Parser<'tokens, ParserInput<'tokens, 'src>, Spanned<Expression>, Error<'tokens>> + Clone, // Statement
 {
     let assignment = irrefutable_pattern()
-        .then_ignore(just(Token::Assign))
-        .then(expr)
+        .then(just(Token::Assign).ignore_then(expr))
+        .recover_with(via_parser(unexpected_newline().map_with(|_, ctx| {
+            (
+                (Pattern::PatternError, ctx.span()),
+                (Expression::ParserError, ctx.span()),
+            )
+        })))
         .map_with(|(name, val), ctx| -> (VariableDeclaration, SimpleSpan) {
             (VariableDeclaration(name, val), ctx.span())
         });

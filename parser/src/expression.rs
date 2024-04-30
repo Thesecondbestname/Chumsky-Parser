@@ -20,7 +20,7 @@ where
 {
     let ident = ident_parser();
     let delim_block = extra_delimited(stmt.repeated().collect::<Vec<_>>())
-        .map(|items| (Expression::Block(Block(items))))
+        .map(|items| Expression::Block(Block(items)))
         .labelled("Code block");
 
     // The recursive expression Part

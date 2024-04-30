@@ -9,7 +9,7 @@ pub enum Instruction {
 
 #[derive(Debug, Clone)]
 pub struct Block(pub Vec<Spanned<Item>>);
-#[derive(Debug, Clone, PartialEq, Eq)]
+#[derive(Debug, Clone, PartialEq, Eq, Hash)]
 pub struct Ident(pub Vec<Spanned<String>>);
 
 #[derive(Debug, Clone)]
@@ -20,6 +20,7 @@ pub enum Pattern {
     Struct(Ident, Vec<(Spanned<Name>, Spanned<Pattern>)>),
     Tuple(Vec<Spanned<Pattern>>),
     Array(Vec<Spanned<Pattern>>, Name),
+    PatternError,
 }
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum Name {
@@ -36,6 +37,7 @@ pub enum Item {
     Struct(Spanned<StructDeclaration>),
     Assingment(Spanned<VariableDeclaration>),
     Trait(Spanned<Trait>),
+    TopLevelExprError,
 }
 
 #[derive(Debug, Clone)]
@@ -98,6 +100,7 @@ pub enum Statement {
 #[derive(Clone, Debug)]
 pub enum Expression {
     ParserError,
+    TopLvlExpr(Box<Spanned<Expression>>),
     If(Box<If>),
     Match {
         condition: Box<Spanned<Expression>>,
@@ -173,7 +176,7 @@ pub enum BinaryOp {
 }
 /// All the type primitives. These do not contain values, rather they denote that a given type
 /// belongs here.
-#[derive(Debug, Clone, Eq, PartialEq)]
+#[derive(Debug, Clone, Eq, PartialEq, Hash)]
 pub enum Type {
     Self_,
     Int,
@@ -389,6 +392,7 @@ crate::impl_display!(Item, |s: &Item| {
                 ))
                 .fold(String::new(), |acc, b| format!("{b},{acc}"))
         ),
+        Item::TopLevelExprError => todo!(),
     }
 });
 crate::impl_display!(Name, |s: &Name| {
@@ -443,6 +447,7 @@ crate::impl_display!(Pattern, |s: &Pattern| {
         ),
         Pattern::Name(name) => name.to_string(),
         Pattern::Value(e) => e.0.to_string(),
+        Pattern::PatternError => "Bad pattern(probably expression)".to_owned(),
     }
 });
 crate::impl_display!(Statement, |s: &Statement| {

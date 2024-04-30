@@ -2,7 +2,8 @@ use crate::ast::{self, Ident, Name, Pattern, Type};
 use crate::convenience_types::{Error, ParserInput, Spanned};
 use crate::expression::value;
 use crate::Token;
-use chumsky::{prelude::*, recursive};
+use chumsky::label::LabelError;
+use chumsky::prelude::*;
 
 pub fn name_parser<'tokens, 'src: 'tokens>() -> impl Parser<
     'tokens,
@@ -114,6 +115,21 @@ pub fn newline<'tokens, 'src: 'tokens>() -> impl Parser<
     ))
     .labelled("Separator")
 }
+pub fn unexpected_newline<'tokens, 'src: 'tokens>() -> impl Parser<
+    'tokens,
+    ParserInput<'tokens, 'src>, // Input
+    (),                         // Output
+    Error<'tokens>,             // Error Type
+> + Clone {
+    none_of(Token::Newline)
+        .ignore_then(choice((
+            just(Token::Newline).ignored(),
+            end().labelled("EOI"),
+            just(Token::Rparen).rewind().ignored(),
+            just(Token::Lparen).rewind().ignored(),
+        )))
+        .labelled("Unexpected Separator")
+}
 pub fn irrefutable_pattern<'tokens, 'src: 'tokens>() -> impl Parser<
     'tokens,
     ParserInput<'tokens, 'src>, // Input
@@ -166,7 +182,6 @@ where
         .collect()
         .delimited_by(just(Token::Lparen), just(Token::Rparen));
     let enum_destructure = ident_parser().then(tuple_destructure.clone());
-    let value_pattern = value().map_with(|pat, ctx| (pat, ctx.span()));
     let struct_destructure = ident_parser().then(
         name_pattern
             .clone()

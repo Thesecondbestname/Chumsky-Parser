@@ -3,7 +3,7 @@ use logos::{Lexer, Logos};
 pub type Lex = Vec<(Token, std::ops::Range<usize>)>;
 pub type LexError = Vec<((), std::ops::Range<usize>, String)>;
 
-#[derive(Debug, PartialEq, Eq, Clone)]
+#[derive(Debug, PartialEq, Eq, Clone, Hash, PartialOrd, Ord)]
 pub struct Span {
     pub start: i32,
     pub end: i32,
@@ -161,6 +161,14 @@ pub enum Token {
     Nothing,
 }
 
+impl std::hash::Hash for Token {
+    fn hash<H: std::hash::Hasher>(&self, state: &mut H) {
+        self.hash(state)
+    }
+}
+
+impl Eq for Token {}
+
 fn type_matcher(lex: &Lexer<Token>) -> ast::Type {
     let slice = lex.slice();
     match slice {
@@ -172,13 +180,6 @@ fn type_matcher(lex: &Lexer<Token>) -> ast::Type {
         _ => unreachable!(),
     }
 }
-
-#[derive(Logos, Clone, Debug, PartialEq, PartialOrd)]
-pub enum Number {
-    #[regex(".*")]
-    None,
-}
-impl Eq for Number {}
 
 /// # Panics
 ///
@@ -206,7 +207,7 @@ pub fn lex_sketchy_program(inp: &String) -> LexResult {
             })
             .collect::<Vec<((), std::ops::Range<usize>, String)>>(),
     );
-    return result;
+    result
 }
 fn parse_span(inp: String) -> Span {
     let nums = inp

@@ -5,6 +5,7 @@ use crate::item::item_parser;
 use crate::lexer::{lex_sketchy_program, Lex, LexError};
 use crate::span_functions::empty_span;
 use crate::Token;
+use chumsky::label::LabelError;
 use chumsky::prelude::*;
 use chumsky::span::Span;
 use thiserror::Error as DeriveError;
@@ -12,7 +13,7 @@ use thiserror::Error as DeriveError;
 pub fn block_parser<'tokens, 'src: 'tokens>() -> impl Parser<
     'tokens,
     ParserInput<'tokens, 'src>, // Input
-    Spanned<Expression>,        // Output
+    Spanned<Item>,              // Output
     Error<'tokens>,             // Error Type)
 > + Clone {
     // import, function, statement
@@ -20,7 +21,32 @@ pub fn block_parser<'tokens, 'src: 'tokens>() -> impl Parser<
         let block_element = item_parser(expression(block.clone()));
         block_element.map_with(|expr, ctx| (expr, ctx.span()))
     });
-    x.repeated()
+    x
+}
+pub fn programm<'tokens, 'src: 'tokens>() -> impl Parser<
+    'tokens,
+    ParserInput<'tokens, 'src>, // Input
+    Spanned<Expression>,        // Output
+    Error<'tokens>,             // Error Type)
+> + Clone {
+    block_parser()
+        .recover_with(via_parser(
+            expression(block_parser())
+                .then_ignore(crate::util_parsers::newline())
+                .map(|a| (Item::TopLevelExprError, a.1)),
+        ))
+        .validate(|it, ctx, emmit| {
+            if let Item::TopLevelExprError = it.0 {
+                emmit.emit({
+                    let mut a = Rich::custom(it.1, "Expressions not allowed at the top level");
+                    LabelError::<ParserInput, &str>::label_with(&mut a, "Top level declaration ");
+                    LabelError::<ParserInput, &str>::in_context(&mut a, "Expression", it.1);
+                    a
+                });
+            }
+            it
+        })
+        .repeated()
         .collect::<Vec<_>>()
         .map_with(|items, ctx| (Expression::Block(Block(items)), ctx.span()))
 }
@@ -31,7 +57,6 @@ pub struct NotInitialized;
 pub struct Initialized(String);
 #[derive(Default, Clone, Debug)]
 pub struct Lexed(Vec<(Token, SimpleSpan)>);
-/// Contains a parsed program. Either holds the parsed ast, or the errors with the recovered ast
 #[derive(Default, Clone)]
 pub struct Parsed(Option<Spanned<Expression>>);
 // ---- STATES ----
@@ -124,8 +149,7 @@ impl<'a, 'i: 'a, P> SketchyParserBuilder<'i, Initialized, Lexed, P> {
     }
     pub fn parse_sketchy_programm(self) -> ParserResult<'a, 'i> {
         let input = &self.tokens.0;
-        let parse =
-            block_parser().parse(input.as_slice().spanned((input.len()..input.len()).into()));
+        let parse = programm().parse(input.as_slice().spanned((input.len()..input.len()).into()));
         let (ast, errs) = parse.into_output_errors();
         if let Some(ast) = ast {
             if errs.is_empty() {
@@ -145,14 +169,14 @@ impl<'a, 'i: 'a, P> SketchyParserBuilder<'i, Initialized, Lexed, P> {
                 self.name,
             )));
         }
-        return ParserResult(Err(ParseErr(
+        ParserResult(Err(ParseErr(
             errs.into_iter()
                 .map(chumsky::error::Rich::into_owned)
                 .collect(),
             (Expression::ParserError, empty_span()),
             self.input.0,
             self.name,
-        )));
+        )))
     }
 }
 impl<'i> SketchyParserBuilder<'i, Initialized, Lexed, Parsed> {
@@ -183,7 +207,7 @@ impl SketchyParser {
     }
 }
 ///Parser error type
-#[derive(DeriveError, Debug)]
+#[derive(DeriveError, Debug, Clone)]
 #[error("Error while Parsing")]
 pub struct ParseErr<'a, 'i>(Vec<Rich<'a, Token>>, Spanned<Expression>, String, &'i str);
 /// Result Type of parse
@@ -230,6 +254,10 @@ impl<'a, 'i> ParserResult<'a, 'i> {
         for err in &error.0 {
             formater(err, &error.1, &error.2, error.3);
         }
+        self
+    }
+    pub fn dbg_print_ast(self) -> Self {
+        println!("{:?}", self.0.as_ref().map(|a| &a.parse_result.0));
         self
     }
     pub fn into_result(

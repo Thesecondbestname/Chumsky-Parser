@@ -2,9 +2,11 @@
 use chumsky::prelude::Rich;
 pub use lexer::Token;
 mod ast;
+
 mod expression;
 mod item;
 mod lexer;
+mod parse_error;
 mod parser;
 mod statement_parser;
 mod util_parsers;
@@ -22,7 +24,6 @@ mod convenience_types {
     pub type Span = chumsky::span::SimpleSpan<usize>;
 }
 pub mod span_functions {
-
     use chumsky::span::SimpleSpan;
     pub fn empty_span() -> SimpleSpan {
         SimpleSpan::new(0, 0)

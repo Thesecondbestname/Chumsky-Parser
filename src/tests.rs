@@ -264,6 +264,7 @@ fn test(input: &str, name: &'static str) -> anyhow::Result<()> {
         .remove_duplicate_newline()
         .parse_sketchy_programm()
         .print_errors(crate::print_error)
+        .dbg_print_ast()
         .into_result()?
         .finish();
     println!("\n\t{}", parse.ast());
