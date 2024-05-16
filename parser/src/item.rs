@@ -1,9 +1,9 @@
 use crate::ast::{
     EnumDeclaration, EnumVariantDeclaration, Expression, FunctionDeclaration, Import, Item,
-    Pattern, StructDeclaration, StructField, Trait, TraitFns, Type, VariableDeclaration,
+    StructDeclaration, StructField, Trait, TraitFns, Type, VariableDeclaration,
 };
 use crate::convenience_parsers::{name_parser, separator, type_parser};
-use crate::convenience_types::{Error, ParserInput, Spanned};
+use crate::convenience_types::{Error, ParserInput, Span, Spanned};
 use crate::lexer::Token;
 use crate::util_parsers::{
     extra_delimited, irrefutable_pattern, newline, parameter_parser, unexpected_newline,
@@ -23,9 +23,9 @@ where
         assingment(block.clone())
             .then_ignore(newline())
             .map(Item::Assingment)
-            .recover_with(via_parser(
-                unexpected_newline().map_with(|_, ctx| (Item::TopLevelExprError)),
-            ))
+            // .recover_with(via_parser(
+            //     unexpected_newline().map_with(|_, ctx| (Item::TopLevelExprError)),
+            // ))
             .labelled("Assignment")
             .as_context(),
         function_definition(block.clone())
@@ -76,7 +76,7 @@ where
         .then_ignore(just(Token::Semicolon).padded_by(separator()))
         .then(
             type_parser()
-                .map_with(|r#type, ctx| -> (Type, SimpleSpan) { (r#type, ctx.span()) })
+                .map_with(|r#type, ctx| -> (Type, Span) { (r#type, ctx.span()) })
                 .labelled("return type"),
         )
         .then(block.clone())
@@ -202,7 +202,7 @@ where
             enum_fields
                 .separated_by(just(Token::Comma).then_ignore(separator()))
                 .allow_trailing()
-                .collect::<Vec<(EnumVariantDeclaration, SimpleSpan)>>(),
+                .collect::<Vec<(EnumVariantDeclaration, Span)>>(),
         )
         .then_ignore(separator())
         .then(
@@ -263,13 +263,13 @@ where
 {
     let assignment = irrefutable_pattern()
         .then(just(Token::Assign).ignore_then(expr))
-        .recover_with(via_parser(unexpected_newline().map_with(|_, ctx| {
-            (
-                (Pattern::PatternError, ctx.span()),
-                (Expression::ParserError, ctx.span()),
-            )
-        })))
-        .map_with(|(name, val), ctx| -> (VariableDeclaration, SimpleSpan) {
+        // .recover_with(via_parser(unexpected_newline().map_with(|_, ctx| {
+        //     (
+        //         (Pattern::PatternError, ctx.span()),
+        //         (Expression::ParserError, ctx.span()),
+        //     )
+        // })))
+        .map_with(|(name, val), ctx| -> (VariableDeclaration, Span) {
             (VariableDeclaration(name, val), ctx.span())
         });
     assignment

@@ -230,16 +230,12 @@ crate::impl_display!(Expression, |s: &Expression| {
         Expression::Ident(a) => format!("{a}"),
         Expression::ParserError => "Error".to_string(),
         Expression::FunctionCall(called, args) => format!(
-            "{{{}({}{})}}",
+            "{{{}({})}}",
             called.0,
-            args.iter()
-                .next()
-                .map(|s| s.0.to_string())
-                .unwrap_or("".to_string()),
-            args.iter().skip(1).fold(String::new(), |acc, a| format!(
-                "{acc}, {}",
-                format!("{}", a.0)
-            ))
+            args.into_iter()
+                .map(|a| a.0.to_string())
+                .reduce(|acc, a| format!("{acc}, {a}"))
+                .unwrap_or("".to_string())
         ),
         Expression::MethodCall(on, name, args) => {
             format!(

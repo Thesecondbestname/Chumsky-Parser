@@ -3,7 +3,7 @@ use logos::{Lexer, Logos};
 pub type Lex = Vec<(Token, std::ops::Range<usize>)>;
 pub type LexError = Vec<((), std::ops::Range<usize>, String)>;
 
-#[derive(Debug, PartialEq, Eq, Clone, Hash, PartialOrd, Ord)]
+#[derive(Debug, PartialEq, Eq, Clone, Hash, PartialOrd, Ord, Copy)]
 pub struct Span {
     pub start: i32,
     pub end: i32,
@@ -163,7 +163,10 @@ pub enum Token {
 
 impl std::hash::Hash for Token {
     fn hash<H: std::hash::Hasher>(&self, state: &mut H) {
-        self.hash(state)
+        match self {
+            Token::Float(a) => a.to_string().hash(state),
+            or => or.hash(state),
+        }
     }
 }
 

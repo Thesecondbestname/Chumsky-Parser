@@ -1,7 +1,8 @@
 #![allow(non_snake_case)]
-use ariadne::{Color, ColorGenerator, Label, Report, ReportKind, Source};
-use parser::{OutputError, OutputType, SketchyParser};
-mod tests;
+use ariadne::{ColorGenerator, Label, Report, ReportKind, Source};
+use parser::{OutputType, SketchyParser};
+// mod error;
+// mod parse_error;
 
 fn main() -> anyhow::Result<()> {
     let input_verified = r#"
@@ -69,9 +70,9 @@ fn main() -> anyhow::Result<()> {
     }
     Ok(())
 }
-fn print_error(error: &OutputError, ast: &OutputType, input: &str, src_name: &str) {
+pub fn print_error(error: &ParseError, ast: &crate::OutputType, input: &str, src_name: &str) {
     let span = error.span();
-    let found = error.found().unwrap_or(&parser::Token::Nothing);
+    let found = error.found().unwrap_or(parser::Token::Nothing);
     let note = if error.expected().next().is_none() {
         format!("Unexpected Token \"{error:?}\"")
     } else if error.expected().count() == 1 {
@@ -88,7 +89,7 @@ fn print_error(error: &OutputError, ast: &OutputType, input: &str, src_name: &st
         format!(r#"Expected one of {expected}but found "{found}""#)
     };
 
-    let empty_span = parser::span_functions::span_from(span.start);
+    let empty_span = parser::empty_span();
     let context = error
         .contexts()
         .last()
@@ -98,7 +99,7 @@ fn print_error(error: &OutputError, ast: &OutputType, input: &str, src_name: &st
         .with_label(
             Label::new((src_name, span.start..span.end))
                 .with_message(format!(r#"found "{found}""#,))
-                .with_color(Color::Red),
+                .with_color(ariadne::Color::Red),
         )
         .with_note(note)
         .finish()

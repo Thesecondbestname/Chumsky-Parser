@@ -1,5 +1,5 @@
 use crate::ast::{Expression, Statement, Value};
-use crate::convenience_types::{Error, ParserInput, Spanned};
+use crate::convenience_types::{Error, ParserInput, Span, Spanned};
 use crate::lexer::Token;
 use chumsky::prelude::*;
 
@@ -36,7 +36,7 @@ where
                     || {
                         Statement::Return(Box::new((
                             Expression::Value(Value::Tuple(vec![])),
-                            SimpleSpan::new(0, 0),
+                            Span::new(0, 0),
                         )))
                     },
                     |exp| Statement::Return(Box::new(exp)),

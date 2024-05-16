@@ -1,6 +1,6 @@
 #[allow(clippy::too_many_lines)]
 use crate::ast::{BinaryOp, Block, ComparisonOp, Expression, If, Item, MathOp, Number, Value};
-use crate::convenience_types::{Error, ParserInput, Spanned};
+use crate::convenience_types::{Error, ParserInput, Span, Spanned};
 use crate::util_parsers::{
     extra_delimited, ident_parser, name_parser, refutable_pattern, separator,
 };
@@ -93,7 +93,7 @@ where
                         .map_with(|expr, span| (expr, span.span()))
                         .repeated(),
                     |func, args| {
-                        let span = SimpleSpan::new(func.1.start, args.1.end);
+                        let span = Span::new(func.1.start, args.1.end);
                         (Expression::FunctionCall(Box::new(func), args.0), span)
                     },
                 )
@@ -187,7 +187,7 @@ where
                 else_expression.clone().foldl(
                     op.then(sum).repeated(),
                     |lhs: Spanned<Expression>, (op, rhs): (_, Spanned<Expression>)| {
-                        let span = SimpleSpan::new(lhs.1.start, rhs.1.end);
+                        let span = Span::new(lhs.1.start, rhs.1.end);
                         (Expression::Binary(Box::new(lhs), op, Box::new(rhs)), span)
                     },
                 )
@@ -207,7 +207,7 @@ where
                 logical.clone().foldl(
                     op.then(logical).repeated(),
                     |lhs: Spanned<Expression>, (op, rhs): (_, Spanned<Expression>)| {
-                        let span = SimpleSpan::new(lhs.1.start, rhs.1.end);
+                        let span = Span::new(lhs.1.start, rhs.1.end);
                         (
                             Expression::Comparison(Box::new(lhs), op, Box::new(rhs)),
                             span,

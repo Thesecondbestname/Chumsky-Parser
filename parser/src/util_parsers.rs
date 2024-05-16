@@ -2,7 +2,6 @@ use crate::ast::{self, Ident, Name, Pattern, Type};
 use crate::convenience_types::{Error, ParserInput, Spanned};
 use crate::expression::value;
 use crate::Token;
-use chumsky::label::LabelError;
 use chumsky::prelude::*;
 
 pub fn name_parser<'tokens, 'src: 'tokens>() -> impl Parser<

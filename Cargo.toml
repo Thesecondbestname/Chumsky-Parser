@@ -10,12 +10,17 @@ members = [
   "parser",
 ]
 
-
 [dependencies]
 logos = "0.13.0"
 parser = { path = "parser" }
 anyhow = "1.0.80"
 ariadne = "0.4.0"
+itertools = "0.12.1"
+
+[dependencies.chumsky]
+git = "https://github.com/zesterer/chumsky"
+rev = "e045b140497bd07fecbe13ae1ad22aa252678de3"
+features = ["label", "pratt"]
 
 [profile.dev.package."*"]
 opt-level = 3
