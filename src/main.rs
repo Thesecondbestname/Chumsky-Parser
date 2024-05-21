@@ -1,6 +1,6 @@
 #![allow(non_snake_case)]
 use ariadne::{ColorGenerator, Label, Report, ReportKind, Source};
-use parser::{OutputType, SketchyParser};
+use parser::{OutputType, ParseError, SketchyParser};
 // mod error;
 // mod parse_error;
 

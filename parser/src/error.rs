@@ -8,9 +8,9 @@ use chumsky::{
     util::{Maybe, MaybeRef},
     ParseResult,
 };
-use diagnostic::{Diagnostic, Level};
+pub use diagnostic::{Diagnostic, Level};
 
-use self::diagnostic::{Pattern, Reason};
+use diagnostic::{Pattern, Reason};
 
 type Label = &'static str;
 
@@ -192,7 +192,7 @@ impl<'a, 'src> chumsky::label::LabelError<'a, ParserInput<'a, 'src>, Label> for 
         }
     }
 }
-fn map_parse_result<T: std::fmt::Debug>(
+pub fn errors_to_diagnostics<T: std::fmt::Debug>(
     parse_result: ParseResult<T, ParseError>,
     src_id: SourceId,
 ) -> (Option<T>, Vec<Diagnostic>) {

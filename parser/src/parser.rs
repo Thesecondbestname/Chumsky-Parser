@@ -1,11 +1,11 @@
 use crate::ast::{Block, Expression, Item};
 use crate::convenience_types::{Error, ParserInput, Span, Spanned};
-use crate::error::ParseError;
+use crate::error::{errors_to_diagnostics, Diagnostic, ParseError};
 use crate::expression::expression;
 use crate::item::item_parser;
 use crate::lexer::{lex_sketchy_program, Lex, LexError};
-use crate::{error, Token};
-use chumsky::label::LabelError;
+use crate::span::SourceId;
+use crate::Token;
 use chumsky::prelude::*;
 use thiserror::Error as DeriveError;
 
@@ -29,11 +29,11 @@ pub fn programm<'tokens, 'src: 'tokens>() -> impl Parser<
     Error<'tokens>,             // Error Type)
 > + Clone {
     block_parser()
-        .recover_with(via_parser(
-            expression(block_parser())
-                .then_ignore(crate::util_parsers::newline())
-                .map(|a| (Item::TopLevelExprError, a.1)),
-        ))
+        // .recover_with(via_parser(
+        //     expression(block_parser())
+        //         .then_ignore(crate::util_parsers::newline())
+        //         .map(|a| (Item::TopLevelExprError, a.1)),
+        // ))
         .validate(|it, ctx, emmit| {
             if let Item::TopLevelExprError = it.0 {
                 emmit.emit({
@@ -151,7 +151,7 @@ impl<'a, 'i: 'a, P> SketchyParserBuilder<'i, Initialized, Lexed, P> {
                 .as_slice()
                 .spanned(Span::from(input.len()..input.len())),
         );
-        let (ast, errs) = parse.into_output_errors();
+        let (ast, errs) = errors_to_diagnostics(parse, SourceId::INVALID);
         if let Some(ast) = ast {
             if errs.is_empty() {
                 return ParserResult(Ok(SketchyParserBuilder {
@@ -206,7 +206,7 @@ impl SketchyParser {
 ///Parser error type
 #[derive(DeriveError, Debug, Clone)]
 #[error("Error while Parsing")]
-pub struct ParseErr<'i>(Vec<ParseError>, Spanned<Expression>, String, &'i str);
+pub struct ParseErr<'i>(Vec<Diagnostic>, Spanned<Expression>, String, &'i str);
 /// Result Type of parse
 pub struct ParserResult<'a>(
     anyhow::Result<SketchyParserBuilder<'a, Initialized, Lexed, Parsed>, ParseErr<'a>>,
@@ -241,7 +241,7 @@ impl<'i, P> LexResult<'i, P> {
     }
 }
 impl<'a> ParserResult<'a> {
-    pub fn print_errors(self, formater: fn(&ParseError, &Spanned<Expression>, &str, &str)) -> Self {
+    pub fn print_errors(self, formater: fn(&Diagnostic, &Spanned<Expression>, &str, &str)) -> Self {
         let Err(ref error) = self.0 else {
             return self;
         };

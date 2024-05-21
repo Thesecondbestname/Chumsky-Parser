@@ -1,5 +1,7 @@
+use ariadne::{Color, ReportKind, Source};
+
 use crate::convenience_types::Span;
-use std::{fmt::Display, sync::mpsc::Sender};
+use std::{fmt::Display, io::Write};
 
 /// An enum representing a diagnostic level.
 #[derive(Copy, Clone, Debug, PartialEq, Eq, PartialOrd, Ord)]
@@ -169,12 +171,98 @@ impl Diagnostic {
         });
         self
     }
+    pub fn emit<T: Write>(&self, mut out: T, name: &str, inp: &str) {
+        type Report<'a> = ariadne::Report<'a, (&'a str, core::ops::Range<usize>)>;
+        if self.span.is_none() && self.level == Level::Debug {
+            Report::build(
+                level_to_kind(self.level),
+                name,
+                self.span.unwrap_or(Span::new(0, 0)).start,
+            )
+            .with_message(&self.message)
+            .finish()
+            .eprint((name, Source::from(inp)))
+            .expect("Falied to build report!");
+            for child in &self.children {
+                write!(out.by_ref(), "{}", child.message).unwrap();
+            }
+            writeln!(out.by_ref()).unwrap();
+            return;
+        };
 
-    pub fn emit(self, emitter: Sender<Diagnostic>) {
-        emitter
-            .send(self)
-            .expect("Internal error: Could not emit diagnostic")
+        fn map_children<'a, 'b>(
+            children: &'a [SubDiagnostic],
+            source: &'b str,
+        ) -> (
+            Vec<ariadne::Label<(&'b str, std::ops::Range<usize>)>>,
+            Vec<&'a String>,
+            Vec<&'a String>,
+        ) {
+            let mut labels = vec![];
+            let mut notes = vec![];
+            let mut helps = vec![];
+
+            for child in children {
+                if child.spans.is_empty() {
+                    match child.level {
+                        Level::Note | Level::Debug => notes.push(&child.message),
+                        Level::Help => helps.push(&child.message),
+                        Level::Error | Level::Warning => todo!(),
+                    }
+                    notes.push(&child.message)
+                }
+                labels.extend(child.spans.iter().map(|span| {
+                    ariadne::Label::new((source, span.clone().into()))
+                        .with_message(&child.message)
+                        .with_color(level_to_color(child.level))
+                }));
+            }
+
+            (labels, notes, helps)
+        }
+
+        let mut builder = ariadne::Report::build(
+            level_to_kind(self.level),
+            name,
+            self.span.unwrap_or(Span::new(0, 0)).start,
+        )
+        .with_message(&self.message);
+
+        if let Some(span) = self.span {
+            if self.children.is_empty() {
+                builder.add_label(
+                    ariadne::Label::new((name, span.into()))
+                        .with_color(level_to_color(self.level))
+                        .with_message(&self.message),
+                )
+            }
+        } else {
+            let (labels, notes, helps) = map_children(&self.children, name);
+            builder.add_labels(labels);
+
+            // TODO Properly render multiple notes/helps
+            if !notes.is_empty() {
+                builder.set_note(
+                    notes
+                        .into_iter()
+                        .fold(String::new(), |acc, b| acc + ", " + b),
+                );
+            }
+            if !helps.is_empty() {
+                builder.set_help(
+                    helps
+                        .into_iter()
+                        .fold(String::new(), |acc, b| acc + ", " + b),
+                );
+            }
+        }
+        builder.finish().eprint((name, Source::from(inp))).unwrap();
     }
+    // pub fn emit(self, emitter: Sender<Diagnostic>) {
+    //     emitter
+    //         .send(self)
+    //         .expect("Internal error: Could not emit diagnostic")
+    // }
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord)]
@@ -205,5 +293,24 @@ impl MultiSpan for Vec<Span> {
 impl MultiSpan for &[Span] {
     fn into_vec(self) -> Vec<Span> {
         self.to_vec()
+    }
+}
+fn level_to_kind(level: Level) -> ReportKind<'static> {
+    match level {
+        Level::Error => ReportKind::Error,
+        Level::Warning => ReportKind::Warning,
+        Level::Note => ReportKind::Advice,
+        Level::Help => ReportKind::Advice,
+        Level::Debug => ReportKind::Custom("Debug", Color::Cyan),
+    }
+}
+
+fn level_to_color(level: Level) -> Color {
+    match level {
+        Level::Error => Color::Red,
+        Level::Warning => Color::Yellow,
+        Level::Note => Color::White,
+        Level::Help => Color::White,
+        Level::Debug => Color::White,
     }
 }

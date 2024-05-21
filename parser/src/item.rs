@@ -23,9 +23,6 @@ where
         assingment(block.clone())
             .then_ignore(newline())
             .map(Item::Assingment)
-            // .recover_with(via_parser(
-            //     unexpected_newline().map_with(|_, ctx| (Item::TopLevelExprError)),
-            // ))
             .labelled("Assignment")
             .as_context(),
         function_definition(block.clone())

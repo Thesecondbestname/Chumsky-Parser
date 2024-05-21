@@ -1,4 +1,4 @@
-use crate::{error::ParseError, parser::SketchyParser};
+use crate::parser::SketchyParser;
 use ariadne::{ColorGenerator, Label, Report, ReportKind, Source};
 #[test]
 fn basic_lex() -> anyhow::Result<()> {
@@ -254,7 +254,7 @@ fn test(input: &str, name: &'static str) -> anyhow::Result<()> {
         .dbg_print_input()
         .lex_sketchy_programm()
         .print_errors(|span, token, input, name| {
-            Report::build(ReportKind::Error, name, 12)
+            let x = Report::build::<&str>(ReportKind::Error, name, 12)
                 .with_message(format!("Error while lexing test {input}"))
                 .with_label(
                     Label::new((name, span.start - 1..span.end - 1.clone()))
@@ -268,45 +268,47 @@ fn test(input: &str, name: &'static str) -> anyhow::Result<()> {
         .into_result()?
         .remove_duplicate_newline()
         .parse_sketchy_programm()
-        .print_errors(print_error)
+        .print_errors(|a, b, c, d| {
+            a.emit(std::io::stdout(), c, d);
+        })
         .dbg_print_ast()
         .into_result()?
         .finish();
     println!("\n\t{}", parse.ast());
     Ok(())
 }
-pub fn print_error(error: &ParseError, ast: &crate::OutputType, input: &str, src_name: &str) {
-    let span = error.span();
-    let found = error.found().unwrap_or(crate::Token::Nothing);
-    let note = if error.expected().next().is_none() {
-        format!("{error:?}")
-    } else if error.expected().count() == 1 {
-        format!(
-            r#"Expected {}but found "{found}""#,
-            error.expected().next().unwrap()
-        )
-    } else {
-        let expected = error
-            .expected()
-            .map(|a| format!(r#"{a} "#))
-            .collect::<Vec<_>>()
-            .concat();
-        format!(r#"Expected one of {expected}but found "{found}""#)
-    };
+// pub fn print_error(error: &Rich<Error>, ast: &crate::OutputType, input: &str, src_name: &str) {
+//     let span = error.span();
+//     let found = error.found().unwrap_or(crate::Token::Nothing);
+//     let note = if error.expected().next().is_none() {
+//         format!("{error:?}")
+//     } else if error.expected().count() == 1 {
+//         format!(
+//             r#"Expected {}but found "{found}""#,
+//             error.expected().next().unwrap()
+//         )
+//     } else {
+//         let expected = error
+//             .expected()
+//             .map(|a| format!(r#"{a} "#))
+//             .collect::<Vec<_>>()
+//             .concat();
+//         format!(r#"Expected one of {expected}but found "{found}""#)
+//     };
 
-    let empty_span = crate::empty_span();
-    let context = error
-        .contexts()
-        .last()
-        .unwrap_or((&"No context", &empty_span));
-    let _ = Report::build(ReportKind::Error, src_name, 0)
-        .with_message(format!("error while parsing {:?}", context.0))
-        .with_label(
-            Label::new((src_name, span.start..span.end))
-                .with_message(format!(r#"found "{found}""#,))
-                .with_color(ariadne::Color::Red),
-        )
-        .with_note(note)
-        .finish()
-        .eprint((src_name, Source::from(input)));
-}
+//     let empty_span = crate::empty_span();
+//     let context = error
+//         .contexts()
+//         .last()
+//         .unwrap_or((&"No context", &empty_span));
+//     let _ = Report::build::<&str>(ReportKind::Error, src_name, 0)
+//         .with_message(format!("error while parsing {:?}", context.0))
+//         .with_label(
+//             Label::new((src_name, span.start..span.end))
+//                 .with_message(format!(r#"found "{found}""#,))
+//                 .with_color(ariadne::Color::Red),
+//         )
+//         .with_note(note)
+//         .finish()
+//         .eprint((src_name, Source::from(input)));
+// }
