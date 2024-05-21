@@ -269,7 +269,7 @@ fn test(input: &str, name: &'static str) -> anyhow::Result<()> {
         .remove_duplicate_newline()
         .parse_sketchy_programm()
         .print_errors(|a, b, c, d| {
-            a.emit(std::io::stdout(), c, d);
+            a.emit(std::io::stdout(), d, c);
         })
         .dbg_print_ast()
         .into_result()?

@@ -37,7 +37,7 @@ pub enum Item {
     Struct(Spanned<StructDeclaration>),
     Assingment(Spanned<VariableDeclaration>),
     Trait(Spanned<Trait>),
-    TopLevelExprError,
+    TopLevelExprError(Expression),
 }
 
 #[derive(Debug, Clone)]
@@ -388,7 +388,7 @@ crate::impl_display!(Item, |s: &Item| {
                 ))
                 .fold(String::new(), |acc, b| format!("{b},{acc}"))
         ),
-        Item::TopLevelExprError => todo!(),
+        Item::TopLevelExprError(_) => todo!(),
     }
 });
 crate::impl_display!(Name, |s: &Name| {

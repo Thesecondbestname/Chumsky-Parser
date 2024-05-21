@@ -1,4 +1,5 @@
 mod diagnostic;
+
 use crate::{
     convenience_types::ParserInput,
     span::{SourceId, Span},
@@ -8,9 +9,7 @@ use chumsky::{
     util::{Maybe, MaybeRef},
     ParseResult,
 };
-pub use diagnostic::{Diagnostic, Level};
-
-use diagnostic::{Pattern, Reason};
+pub use diagnostic::{Diagnostic, Level, Pattern, Reason};
 
 type Label = &'static str;
 
@@ -29,6 +28,20 @@ impl ParseError {
         ParseError {
             span,
             reason: Reason::Custom(Diagnostic::new(Level::Error, msg.to_string())),
+            context: Vec::new(),
+        }
+    }
+    #[inline]
+    pub fn expected_found(span: Span, expected: Vec<&'static str>, found: Option<Token>) -> Self {
+        ParseError {
+            reason: Reason::expected_found(
+                expected
+                    .into_iter()
+                    .map(crate::error::Pattern::Label)
+                    .collect::<Vec<_>>(),
+                found,
+            ),
+            span,
             context: Vec::new(),
         }
     }
@@ -62,6 +75,7 @@ impl ParseError {
             match reason {
                 Reason::ExpectedFound { expected, .. } => v.extend(expected.iter()),
                 Reason::Custom(_) => {}
+                Reason::ExpectedFoundHelp { expected, .. } => v.extend(expected.iter()),
             }
         }
         let mut v = Vec::new();
@@ -127,6 +141,11 @@ impl<'a, 'src> chumsky::error::Error<'a, ParserInput<'a, 'src>> for ParseError {
                 }
             }
             Reason::Custom(_) => todo!(),
+            Reason::ExpectedFoundHelp {
+                expected,
+                found,
+                help,
+            } => todo!(),
         }
         // TOOD: Merge contexts
         self
@@ -199,8 +218,6 @@ pub fn errors_to_diagnostics<T: std::fmt::Debug>(
     let error_to_diagostic = |err: ParseError| -> Diagnostic {
         use crate::error::Reason;
         let mut span = err.span().with_id(src_id);
-        // TODO Why are these spans generated?
-        // The input from the tokenizer looks correct...
         if span.end < span.start {
             std::mem::swap(&mut span.start, &mut span.end);
         }
@@ -213,6 +230,15 @@ pub fn errors_to_diagnostics<T: std::fmt::Debug>(
                 (false, Some(found)) => report_expected_found(span, expected, found),
             },
             Reason::Custom(diagnostic) => diagnostic,
+            Reason::ExpectedFoundHelp {
+                expected,
+                found,
+                help,
+            } => match (expected.is_empty(), found.clone()) {
+                (true, _) => report_unexpected(span, found),
+                (false, None) => report_expected(span, expected),
+                (false, Some(found)) => report_expected_found(span, expected, found),
+            },
         }
     };
 
@@ -257,7 +283,7 @@ fn patterns_to_string(patterns: Vec<Pattern>) -> String {
         search: &'static [Pattern],
         replacement: &'static Pattern,
     ) {
-        let search_set = HashSet::from_iter(search);
+        let search_set: HashSet<&Pattern> = HashSet::from_iter(search);
         if search_set.is_subset(super_set) {
             for pattern in search_set {
                 super_set.remove(pattern);
@@ -275,7 +301,16 @@ fn patterns_to_string(patterns: Vec<Pattern>) -> String {
             haystack.insert(replacement);
         }
     }
-
+    replace_subset(
+        &mut patterns,
+        &[Pattern::Label("Assignment"), Pattern::Label("Function")],
+        &Pattern::Label("Top level item"),
+    );
+    replace_element(
+        &mut patterns,
+        &Pattern::Token(Token::Assign),
+        &Pattern::Label("Assignment"),
+    );
     replace_subset(
         &mut patterns,
         &[
@@ -298,15 +333,6 @@ fn patterns_to_string(patterns: Vec<Pattern>) -> String {
             Pattern::Token(Token::Minus),
         ],
         &Pattern::Label("an arithmetic operator"),
-    );
-
-    replace_subset(
-        &mut patterns,
-        &[
-            Pattern::Token(Token::Assign),
-            // TODO Add others
-        ],
-        &Pattern::Label("an assignment operator"),
     );
 
     replace_subset(
@@ -346,8 +372,10 @@ fn patterns_to_string(patterns: Vec<Pattern>) -> String {
     format!(
         "{}{}{last}",
         start
-            .into_iter()
-            .fold(String::new(), |acc, a| format!("{acc}, {a}")),
+            .iter()
+            .map(|a| a.to_string())
+            .collect::<Vec<String>>()
+            .join(","),
         if start.is_empty() { "" } else { " or " }
     )
 }

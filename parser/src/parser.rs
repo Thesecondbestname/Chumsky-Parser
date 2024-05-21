@@ -1,6 +1,6 @@
 use crate::ast::{Block, Expression, Item};
 use crate::convenience_types::{Error, ParserInput, Span, Spanned};
-use crate::error::{errors_to_diagnostics, Diagnostic, ParseError};
+use crate::error::{errors_to_diagnostics, Diagnostic, ParseError, Pattern};
 use crate::expression::expression;
 use crate::item::item_parser;
 use crate::lexer::{lex_sketchy_program, Lex, LexError};
@@ -29,16 +29,18 @@ pub fn programm<'tokens, 'src: 'tokens>() -> impl Parser<
     Error<'tokens>,             // Error Type)
 > + Clone {
     block_parser()
-        // .recover_with(via_parser(
-        //     expression(block_parser())
-        //         .then_ignore(crate::util_parsers::newline())
-        //         .map(|a| (Item::TopLevelExprError, a.1)),
-        // ))
+        .recover_with(via_parser(
+            expression(block_parser())
+                .then_ignore(crate::util_parsers::newline())
+                .map(|a| (Item::TopLevelExprError(a.0), a.1)),
+        ))
         .validate(|it, ctx, emmit| {
-            if let Item::TopLevelExprError = it.0 {
-                emmit.emit({
-                    ParseError::custom(ctx.span(), "Top Level expressions are not allowed")
-                });
+            if let Item::TopLevelExprError(_) = it.0 {
+                emmit.emit(ParseError::expected_found(
+                    ctx.span(),
+                    vec!["Top Level Item"],
+                    None,
+                ));
             }
             it
         })
@@ -81,6 +83,10 @@ impl<'i, I, L: Default, P: Default> SketchyParserBuilder<'i, I, L, P> {
             tokens: self.tokens,
             parse_result: self.parse_result,
         }
+    }
+    pub fn dbg_panic(self) -> Self {
+        panic!();
+        self
     }
 }
 impl<'i, L, P> SketchyParserBuilder<'i, Initialized, L, P> {
@@ -234,6 +240,15 @@ impl<'i, P> LexResult<'i, P> {
         }
         self
     }
+    pub fn dbg_panic(self) -> Self {
+        let x = if let Err(ref error) = self.0 {
+            error.to_string()
+        } else {
+            "paniced in lex Result".to_owned()
+        };
+        panic!("{:?}", x);
+        self
+    }
     pub fn into_result(
         self,
     ) -> anyhow::Result<SketchyParserBuilder<'i, Initialized, Lexed, P>, LexErr<'i>> {
@@ -252,6 +267,15 @@ impl<'a> ParserResult<'a> {
     }
     pub fn dbg_print_ast(self) -> Self {
         println!("{:?}", self.0.as_ref().map(|a| &a.parse_result.0));
+        self
+    }
+    pub fn dbg_panic(self) -> Self {
+        let x = if let Err(ref error) = self.0 {
+            error.to_string()
+        } else {
+            "paniced in parserResult".to_owned()
+        };
+        panic!("{:?}", x);
         self
     }
     pub fn into_result(

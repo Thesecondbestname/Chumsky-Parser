@@ -75,6 +75,15 @@ pub enum Reason {
         /// The tokens found
         found: Option<crate::Token>,
     },
+    // Additional type for help
+    ExpectedFoundHelp {
+        /// The tokens expected
+        expected: Vec<Pattern>,
+        /// The tokens found
+        found: Option<String>,
+        /// The optional help Text
+        help: Option<String>,
+    },
     /// An error with a custom message
     Custom(Diagnostic),
 }
@@ -85,13 +94,26 @@ impl Reason {
         match self {
             Self::ExpectedFound { found, .. } => found.clone(),
             Self::Custom(_) => None,
+            Self::ExpectedFoundHelp {
+                expected,
+                found,
+                help,
+            } => None,
         }
     }
 
+    pub fn expected_found(expected: Vec<Pattern>, found: Option<crate::Token>) -> Self {
+        Reason::ExpectedFound { expected, found }
+    }
     pub fn take_found(&mut self) -> Option<crate::Token> {
         match self {
             Reason::ExpectedFound { found, .. } => found.take(),
             Reason::Custom(_) => None,
+            Reason::ExpectedFoundHelp {
+                expected,
+                found,
+                help,
+            } => None,
         }
     }
 
@@ -125,6 +147,7 @@ impl Reason {
             (Reason::Custom(this), Reason::Custom(other)) => todo!(),
             (this @ Reason::Custom(_), _) => this,
             (_, other @ Reason::Custom(_)) => other,
+            a => panic!("[INTERNAL ERROR] had to fuse errors {a}"),
         }
     }
 }
@@ -242,27 +265,20 @@ impl Diagnostic {
 
             // TODO Properly render multiple notes/helps
             if !notes.is_empty() {
-                builder.set_note(
-                    notes
-                        .into_iter()
-                        .fold(String::new(), |acc, b| acc + ", " + b),
-                );
+                let (start, end) = notes
+                    .split_first()
+                    .expect("[INTERNALL ERROR] diagnostic has less than 1 note");
+                builder.set_note(end.iter().fold(start.to_string(), |acc, b| acc + ", " + b));
             }
             if !helps.is_empty() {
-                builder.set_help(
-                    helps
-                        .into_iter()
-                        .fold(String::new(), |acc, b| acc + ", " + b),
-                );
+                let (start, end) = notes
+                    .split_first()
+                    .expect("[INTERNALL ERROR] diagnostic has less than 1 help");
+                builder.set_help(end.iter().fold(start.to_string(), |acc, b| acc + ", " + b));
             }
         }
         builder.finish().eprint((name, Source::from(inp))).unwrap();
     }
-    // pub fn emit(self, emitter: Sender<Diagnostic>) {
-    //     emitter
-    //         .send(self)
-    //         .expect("Internal error: Could not emit diagnostic")
-    // }
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord)]

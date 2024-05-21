@@ -36,7 +36,7 @@ impl LexResult {
     }
 }
 
-#[derive(Logos, Debug, PartialEq, Clone)]
+#[derive(Logos, Debug, PartialEq, Clone, Hash)]
 #[logos(skip r"[ \t\f]+|(?://.*\n|/\*[\s\S]*\*/)")]
 pub enum Token {
     #[token("+")]
@@ -103,8 +103,8 @@ pub enum Token {
     Lbracket,
     #[regex(r"[0-9]+", |lex| lex.slice().parse::<i64>().unwrap(), priority=2)]
     Integer(i64),
-    #[regex(r"[0-9]+\.[0-9]+", |lex| lex.slice().parse::<f64>().unwrap())]
-    r#Float(f64),
+    #[regex(r"[0-9]+\.[0-9]+", |lex| lex.slice().to_owned())]
+    r#Float(String),
     #[token("loop")]
     Loop,
     /// (
@@ -159,15 +159,6 @@ pub enum Token {
     #[token("while")]
     While,
     Nothing,
-}
-
-impl std::hash::Hash for Token {
-    fn hash<H: std::hash::Hasher>(&self, state: &mut H) {
-        match self {
-            Token::Float(a) => a.to_string().hash(state),
-            or => or.hash(state),
-        }
-    }
 }
 
 impl Eq for Token {}

@@ -294,7 +294,11 @@ pub fn value<'tokens, 'src: 'tokens>() -> impl Parser<
     let float = select! { Token::Float(v) => v }.labelled("Floating point");
     let number = int
         .map(|int| Expression::Value(Value::Number(Number::Int(int))))
-        .or(float.map(|float| Expression::Value(Value::Number(Number::Float(float)))));
+        .or(float.map(|float| {
+            Expression::Value(Value::Number(Number::Float(
+                float.parse::<f64>().expect("float too big :()"),
+            )))
+        }));
     let bool = select! {
         Token::True=> Expression::Value(Value::Bool(true)),
         Token::False => Expression::Value(Value::Bool(false))
