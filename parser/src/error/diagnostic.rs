@@ -82,7 +82,7 @@ pub enum Reason {
         /// The tokens found
         found: Option<String>,
         /// The optional help Text
-        help: Option<String>,
+        help: String,
     },
     /// An error with a custom message
     Custom(Diagnostic),
@@ -147,7 +147,7 @@ impl Reason {
             (Reason::Custom(this), Reason::Custom(other)) => todo!(),
             (this @ Reason::Custom(_), _) => this,
             (_, other @ Reason::Custom(_)) => other,
-            a => panic!("[INTERNAL ERROR] had to fuse errors {a}"),
+            a => panic!("[INTERNAL ERROR] had to fuse errors {a:?}"),
         }
     }
 }
@@ -158,6 +158,7 @@ impl Reason {
 pub struct Diagnostic {
     pub level: Level,
     pub message: String,
+    pub help: Option<String>,
     pub span: Option<Span>,
     pub children: Vec<SubDiagnostic>,
 }
@@ -169,6 +170,7 @@ impl Diagnostic {
             message: message.into(),
             span: None,
             children: vec![],
+            help: None,
         }
     }
 
@@ -178,9 +180,13 @@ impl Diagnostic {
             message: message.into(),
             span: Some(span),
             children: vec![],
+            help: None,
         }
     }
-
+    pub fn with_help(mut self, help: String) -> Self {
+        self.help = Some(help);
+        self
+    }
     pub fn with_child(
         mut self,
         spans: impl MultiSpan,
@@ -244,12 +250,17 @@ impl Diagnostic {
             (labels, notes, helps)
         }
 
-        let mut builder = ariadne::Report::build(
+        let builder = ariadne::Report::build(
             level_to_kind(self.level),
             name,
             self.span.unwrap_or(Span::new(0, 0)).start,
         )
         .with_message(&self.message);
+        let mut builder = if let Some(help) = self.help.clone() {
+            builder.with_help(help)
+        } else {
+            builder
+        };
 
         if let Some(span) = self.span {
             if self.children.is_empty() {

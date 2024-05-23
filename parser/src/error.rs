@@ -45,6 +45,23 @@ impl ParseError {
             context: Vec::new(),
         }
     }
+    #[inline]
+    pub fn expected_found_help(
+        span: Span,
+        expected: Vec<Pattern>,
+        found: Option<String>,
+        help: String,
+    ) -> Self {
+        ParseError {
+            reason: Reason::ExpectedFoundHelp {
+                expected,
+                found,
+                help,
+            },
+            span,
+            context: Vec::new(),
+        }
+    }
 
     /// Get the span associated with this error.
     pub fn span(&self) -> Span {
@@ -235,9 +252,22 @@ pub fn errors_to_diagnostics<T: std::fmt::Debug>(
                 found,
                 help,
             } => match (expected.is_empty(), found.clone()) {
-                (true, _) => report_unexpected(span, found),
-                (false, None) => report_expected(span, expected),
-                (false, Some(found)) => report_expected_found(span, expected, found),
+                (true, _) => Diagnostic::spanned(
+                    span,
+                    Level::Error,
+                    format!("Unexpected {}", found.unwrap_or("Token found".to_owned())),
+                )
+                .with_help(help),
+                (false, None) => report_expected(span, expected).with_help(help),
+                (false, Some(found)) => {
+                    let patterns = patterns_to_string(expected);
+                    Diagnostic::new(
+                        Level::Error,
+                        format!("Expected {patterns}, found {}", found),
+                    )
+                    .with_child(span, Level::Error, format!("Expected {patterns}"))
+                    .with_help(help)
+                }
             },
         }
     };
