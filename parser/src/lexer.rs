@@ -20,12 +20,6 @@ impl LexResult {
     pub fn is_ok(&self) -> bool {
         self.errors.is_empty()
     }
-    pub const fn tokens(&self) -> &Vec<(Token, std::ops::Range<usize>)> {
-        &self.tokens
-    }
-    pub const fn errors(&self) -> &Vec<((), std::ops::Range<usize>, String)> {
-        &self.errors
-    }
     /// Converts the lex to a result, consuming and returning the Lex if no errors exist and a tuple of lex and errors otherwise
     pub fn to_result(self) -> Result<Lex, (Lex, LexError)> {
         if self.is_ok() {

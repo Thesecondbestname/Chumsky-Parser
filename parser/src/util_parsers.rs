@@ -1,7 +1,7 @@
 use crate::ast::{self, Ident, Name, Pattern, Type};
 use crate::convenience_types::{Error, ParserInput, Spanned};
 use crate::expression::value;
-use crate::Token;
+use crate::{ParseError, Token};
 use chumsky::prelude::*;
 
 pub fn name_parser<'tokens, 'src: 'tokens>() -> impl Parser<
@@ -18,13 +18,27 @@ pub fn ident_parser<'tokens, 'src: 'tokens>() -> impl Parser<
     Ident,                      // Output
     Error<'tokens>,             // Error Type
 > + Clone {
-    select! { Token::Ident(ident) => ident }
+    select! { Token::Ident(ident) if ident.chars().next().expect("[INTERNAL ERROR] erronious string parsing").is_lowercase() => ident }
         .map_with(|a, ctx| (a, ctx.span()))
         .separated_by(just(Token::DoubleColon))
         .at_least(1)
         .collect()
         .map(ast::Ident)
         .labelled("Identifier")
+}
+pub fn type_ident_parser<'tokens, 'src: 'tokens>() -> impl Parser<
+    'tokens,
+    ParserInput<'tokens, 'src>, // Input
+    Ident,                      // Output
+    Error<'tokens>,             // Error Type
+> + Clone {
+    select! { Token::Ident(ident) if ident.chars().next().is_some_and(char::is_uppercase)=> ident }
+        .map_with(|a, ctx| (a, ctx.span()))
+        .separated_by(just(Token::DoubleColon))
+        .at_least(1)
+        .collect()
+        .map(ast::Ident)
+        .labelled("Type Identifier")
 }
 pub fn separator<'tokens, 'src: 'tokens>() -> impl Parser<
     'tokens,
@@ -42,7 +56,7 @@ pub fn type_parser<'tokens, 'src: 'tokens>() -> impl Parser<
 > + Clone {
     let int = select! { Token::Integer(v) => v }.labelled("Whole AAh integer");
     recursive(|r#type| {
-        let path = ident_parser().map_with(|a, ctx| Type::Path((a, ctx.span())));
+        let path = type_ident_parser().map_with(|a, ctx| Type::Path((a, ctx.span())));
         let primitives = select! {Token::Type(x) => x,}.labelled("primitive type");
         let tuple = r#type
             .clone()
@@ -149,7 +163,7 @@ pub fn refutable_pattern<'tokens, 'src: 'tokens>() -> impl Parser<
             .or(value().map_with(|a, b| (a, b.span())).map(Pattern::Value))
             .map_with(|pat, ctx| (pat, ctx.span()))
     });
-    pattern.labelled("labelled pattern")
+    pattern.labelled("Pattern")
 }
 pub fn pattern<'tokens, 'src: 'tokens, T>(
     pattern: T,
@@ -167,21 +181,22 @@ where
             Error<'tokens>,             // Error Type
         > + Clone,
 {
-    let name_pattern = ident_parser().map(|ident| {
-        let Ident(s) = ident;
-        if "_" == s[0].0 && s.len() == 1 {
-            Name::Underscore
-        } else {
+    let nuthing = select! { Token::Ident(ident) if ident == "_" =>
+        Name::Underscore
+    };
+    let name_pattern = ident_parser()
+        .map(|ident| {
+            let Ident(s) = ident;
             Name::Name(s)
-        }
-    });
+        })
+        .or(nuthing);
     let tuple_destructure = pattern
         .clone()
         .separated_by(just(Token::Comma))
         .collect()
         .delimited_by(just(Token::Lparen), just(Token::Rparen));
-    let enum_destructure = ident_parser().then(tuple_destructure.clone());
-    let struct_destructure = ident_parser().then(
+    let enum_destructure = type_ident_parser().then(tuple_destructure.clone().or_not());
+    let struct_destructure = type_ident_parser().then(
         name_pattern
             .clone()
             .map_with(|pat, ctx| (pat, ctx.span()))
@@ -203,7 +218,7 @@ where
             .map(|(name, b)| Pattern::Struct(name, b))
             .labelled("Struct destructure"),
         enum_destructure
-            .map(|(name, pat)| Pattern::Enum(name, pat))
+            .map(|(name, pat)| Pattern::Enum(name, pat.unwrap_or(vec![])))
             .labelled("Enum destructure"),
         tuple_destructure
             .map(Pattern::Tuple)

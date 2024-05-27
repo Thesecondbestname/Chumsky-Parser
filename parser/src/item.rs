@@ -260,12 +260,6 @@ where
 {
     let assignment = irrefutable_pattern()
         .then(just(Token::Assign).ignore_then(expr))
-        // .recover_with(via_parser(unexpected_newline().map_with(|_, ctx| {
-        //     (
-        //         (Pattern::PatternError, ctx.span()),
-        //         (Expression::ParserError, ctx.span()),
-        //     )
-        // })))
         .map_with(|(name, val), ctx| -> (VariableDeclaration, Span) {
             (VariableDeclaration(name, val), ctx.span())
         });

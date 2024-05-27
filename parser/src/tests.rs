@@ -5,7 +5,7 @@ fn basic_lex() -> anyhow::Result<()> {
     let lex = r#"use io/print
     x = xöla
     y = 69 / (56 - 0.45)
-    _ = print(Works)
+    _ = print(works)
     enum Foo:
         baz
     ;
@@ -97,17 +97,17 @@ fn traits() -> anyhow::Result<()> {
 }
 #[test]
 fn enum_destructuring() -> anyhow::Result<()> {
-    let input = "Some((name, _)) = Y";
+    let input = "Some((name, _)) = y";
     test(input, "enum_destructuring")
 }
 #[test]
 fn struct_destructuring() -> anyhow::Result<()> {
-    let input = "Person(name# (name, _), pattern# _) = Y";
+    let input = "Person(name# (name, _), pattern# _) = y";
     test(input, "struct_destructuring")
 }
 #[test]
 fn array_destructuring() -> anyhow::Result<()> {
-    let input = "[a,b,c..d] = Y";
+    let input = "[a,b,c..d] = y";
     test(input, "array_destructuring")
 }
 #[test]
@@ -180,7 +180,7 @@ fn separator() -> anyhow::Result<()> {
 fn angery_case() -> anyhow::Result<()> {
     let input = r"x = 50.sqrt
         y = ksjdfo
-        _ = print(Works)";
+        _ = print(works)";
     test(input, "angery_case")
 }
 #[test]

@@ -2,7 +2,7 @@
 use crate::ast::{BinaryOp, Block, ComparisonOp, Expression, If, Item, MathOp, Number, Value};
 use crate::convenience_types::{Error, ParserInput, Span, Spanned};
 use crate::util_parsers::{
-    extra_delimited, ident_parser, name_parser, refutable_pattern, separator,
+    extra_delimited, ident_parser, name_parser, refutable_pattern, separator, type_ident_parser,
 };
 use crate::Token;
 use chumsky::prelude::*;
@@ -25,7 +25,7 @@ where
 
     // The recursive expression Part
     recursive(|expression| {
-        let obj_construction = ident
+        let struct_construction = type_ident_parser()
             .clone()
             .map_with(|a, ctx| (a, ctx.span()))
             .then(
@@ -38,13 +38,35 @@ where
                     .delimited_by(just(Token::Lbracket), just(Token::Rbracket))
                     .map_with(|a, ctx| (a, ctx.span())),
             )
-            .map(|(name, args)| Expression::Value(Value::Object { name, fields: args }))
+            .map(|(name, args)| Expression::Value(Value::Struct { name, fields: args }))
+            .labelled("Object construction");
+        let enum_construction = type_ident_parser()
+            .clone()
+            .map_with(|a, ctx| (a, ctx.span()))
+            .then(
+                expression
+                    .clone()
+                    .separated_by(just(Token::Comma))
+                    .collect::<Vec<_>>()
+                    .delimited_by(just(Token::Lparen), just(Token::Rparen))
+                    .map_with(|a, ctx| (a, ctx.span()))
+                    .or_not(),
+            )
+            .map(|args| {
+                Expression::Value(Value::Enum {
+                    variant: args.0.clone(),
+                    fields: args
+                        .1
+                        .unwrap_or((vec![], Span::new(args.0 .1.end, args.0 .1.end))),
+                })
+            })
             .labelled("Object construction");
         let inline_expression = {
             // Atom which is the smallest expression.
             let atom = choice((
                 value(),
-                obj_construction,
+                struct_construction,
+                enum_construction,
                 ident.clone().map(Expression::Ident),
                 delim_block,
             ))
