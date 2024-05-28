@@ -86,6 +86,14 @@ fn struct_functions() -> anyhow::Result<()> {
     test(input, "structs_with_impl")
 }
 #[test]
+fn function_types() -> anyhow::Result<()> {
+    let input = "trait Add: 
+            add: fn(int)#int,
+            int; int
+        ;";
+    test(input, "function_types")
+}
+#[test]
 fn method_calls() -> anyhow::Result<()> {
     let input = "x = 500.sqrt";
     test(input, "method_calls")

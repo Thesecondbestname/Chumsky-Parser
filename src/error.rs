@@ -331,15 +331,15 @@ fn patterns_to_string(patterns: Vec<Pattern>) -> String {
             haystack.insert(replacement);
         }
     }
-    replace_subset(
-        &mut patterns,
-        &[Pattern::Label("Assignment"), Pattern::Label("Function")],
-        &Pattern::Label("Top level item"),
-    );
     replace_element(
         &mut patterns,
         &Pattern::Token(Token::Assign),
         &Pattern::Label("Assignment"),
+    );
+    replace_subset(
+        &mut patterns,
+        &[Pattern::Label("Assignment"), Pattern::Label("Function")],
+        &Pattern::Label("Top level item"),
     );
     replace_subset(
         &mut patterns,

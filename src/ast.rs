@@ -32,6 +32,7 @@ pub enum Name {
 pub enum Item {
     //TODO: Read span here
     Function(FunctionDeclaration),
+
     Import(Spanned<Import>),
     Enum(Spanned<EnumDeclaration>),
     Struct(Spanned<StructDeclaration>),
@@ -189,6 +190,11 @@ pub enum Type {
     Array(Box<Type>, i64),
     Tuple(Vec<Type>),
     Char,
+    FunctionType(
+        Spanned<String>,
+        Spanned<Vec<Spanned<Self>>>,
+        Option<Box<Spanned<Self>>>,
+    ),
     Span,
     Path(Spanned<Ident>),
 }
@@ -297,6 +303,19 @@ crate::impl_display!(Type, |s: &Type| {
         Type::Char => "char".to_owned(),
         Type::Span => "span".to_owned(),
         Type::Path(p) => format!("{}", p.0),
+        Type::FunctionType((name, _), b, c) => {
+            if let Some(a) = c {
+                return format!(
+                    "fn {name}({}) {}",
+                    format_join(&b.0, ",").unwrap_or("".to_string()),
+                    format!("-> {}", a.0)
+                );
+            };
+            format!(
+                "fn {name}({})",
+                format_join(&b.0, ",").unwrap_or("".to_string())
+            )
+        }
     }
 });
 crate::impl_display!(StructDeclaration, |s: &StructDeclaration| {
@@ -326,11 +345,16 @@ crate::impl_display!(FunctionDeclaration, |s: &FunctionDeclaration| {
     format!(
         "fn {}({}) -> {} ({})",
         s.name.0,
-        s.arguments.iter().fold(String::new(), |acc, a| format!(
-            "{acc} {}: {},",
-            a.0 .1 .0.clone(),
-            a.0 .0 .0.clone()
-        )),
+        {
+            if let Some((first, x)) = s.arguments.split_first() {
+                x.iter()
+                    .fold(format!("{}: {}", first.0 .1 .0, first.0 .0 .0), |acc, a| {
+                        format!("{acc}, {}: {}", a.0 .1 .0.clone(), a.0 .0 .0.clone())
+                    })
+            } else {
+                "".to_string()
+            }
+        },
         s.return_type.0,
         s.body.0
     )

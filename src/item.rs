@@ -271,18 +271,24 @@ pub fn trait_parser<'tokens, 'src: 'tokens>(
         .then(
             type_parser()
                 .map_with(|a, ctx| (a, ctx.span()))
-                .separated_by(just(Token::Comma))
+                .separated_by(just(Token::Comma).then(separator()))
                 .collect()
-                .delimited_by(just(Token::Colon), just(Token::Semicolon)),
+                .delimited_by(
+                    just(Token::Colon).padded_by(separator()),
+                    just(Token::Semicolon).padded_by(separator()),
+                ),
         )
         .then(type_parser().map_with(|ty, ctx| (ty, ctx.span())))
         .map_with(|((a, b), c), ctx| (TraitFns(a, b, c), ctx.span()));
     just(Token::Trait)
         .ignore_then(name_parser())
         .then(
-            fns.separated_by(just(Token::Comma))
+            fns.separated_by(just(Token::Comma).padded_by(separator()))
                 .collect()
-                .delimited_by(just(Token::Colon), just(Token::Semicolon)),
+                .delimited_by(
+                    just(Token::Colon).padded_by(separator()),
+                    just(Token::Semicolon).padded_by(separator()),
+                ),
         )
         .map_with(|(a, b), ctx| (Trait(a, b), ctx.span()))
 }

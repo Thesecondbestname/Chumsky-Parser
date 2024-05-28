@@ -33,6 +33,16 @@ pub fn type_ident_parser<'tokens, 'src: 'tokens>() -> impl Parser<
     Error<'tokens>,             // Error Type
 > + Clone {
     select! { Token::Ident(ident) if ident.chars().next().is_some_and(char::is_uppercase)=> ident }
+        // Results in catastrophic parser failure
+        // .recover_with(
+        //     via_parser(
+        //         select! {Token::Ident(ident) if ident.chars().next().is_some_and(char::is_lowercase)=> ident }
+        //         .validate(|v, ctx, emitter|{
+        //             emitter.emit(ParseError::expected_found_help(ctx.span(), vec![crate::error::Pattern::Label("Type ident")], Some("variable Ident".to_owned()), "Consider making this uppercase".to_owned()));
+        //             v
+        //         })
+        //     )
+        // )
         .map_with(|a, ctx| (a, ctx.span()))
         .separated_by(just(Token::DoubleColon))
         .at_least(1)
@@ -72,11 +82,31 @@ pub fn type_parser<'tokens, 'src: 'tokens>() -> impl Parser<
             .delimited_by(just(Token::Lbracket), just(Token::Rbracket))
             .map(|(r#type, len)| Type::Array(Box::new(r#type), len))
             .labelled("Array");
+        let function_type = name_parser()
+            .map_with(|a, ctx| (a, ctx.span()))
+            .then(
+                r#type
+                    .clone()
+                    .map_with(|a, ctx| (a, ctx.span()))
+                    .separated_by(just(Token::Comma).then(separator()))
+                    .collect()
+                    .or_not()
+                    .map(|a| a.unwrap_or(vec![]))
+                    .delimited_by(just(Token::Lparen), just(Token::Rparen))
+                    .map_with(|a, ctx| (a, ctx.span())),
+            )
+            .then(
+                just(Token::Hashtag)
+                    .ignore_then(r#type.map_with(|a, ctx| Box::new((a, ctx.span()))))
+                    .or_not(),
+            )
+            .map(|((name, args), ret)| Type::FunctionType(name, args, ret));
         choice((
             tuple,
             primitives,
             array,
             path,
+            function_type,
             just(Token::Self_).to(Type::Self_),
         ))
     })
