@@ -1,3 +1,5 @@
+#![allow(clippy::unwrap_used)]
+#![allow(clippy::expect_used)]
 use crate::{ast, impl_display};
 use logos::{Lexer, Logos};
 pub type Lex = Vec<(Token, std::ops::Range<usize>)>;
@@ -21,7 +23,7 @@ impl LexResult {
         self.errors.is_empty()
     }
     /// Converts the lex to a result, consuming and returning the Lex if no errors exist and a tuple of lex and errors otherwise
-    pub fn to_result(self) -> Result<Lex, (Lex, LexError)> {
+    pub fn into_result(self) -> Result<Lex, (Lex, LexError)> {
         if self.is_ok() {
             Ok(self.tokens)
         } else {
@@ -83,7 +85,7 @@ pub enum Token {
     Gte,
     #[token("..")]
     DoubleDot,
-    #[regex(r"(\d+)\.\.(\d+)", |lex| parse_span(lex.slice().to_string()))]
+    #[regex(r"(\d+)\.\.(\d+)", |lex| parse_span(lex.slice()))]
     Span(Span),
     #[regex("[a-zA-Z_öäü][a-zA-Z0-9_öäü]*", |lex| lex.slice().to_string())]
     Ident(String),
@@ -116,7 +118,7 @@ pub enum Token {
     QuestionMark,
     #[token("*")]
     Mul,
-    ///!=
+    // !=
     #[token("!=")]
     Neq,
     #[token("or")]
@@ -177,8 +179,8 @@ fn type_matcher(lex: &Lexer<Token>) -> ast::Type {
 ///
 /// This function will return an error if Lexing was unsuccessful.
 #[must_use]
-pub fn lex_sketchy_program(inp: &String) -> LexResult {
-    let parse = Token::lexer(&inp[..]);
+pub fn lex_sketchy_program(inp: &str) -> LexResult {
+    let parse = Token::lexer(inp);
     let (token, err): (Vec<_>, Vec<_>) = parse.clone().spanned().partition(|token| token.0.is_ok());
     let result = LexResult::new(
         token
@@ -197,7 +199,7 @@ pub fn lex_sketchy_program(inp: &String) -> LexResult {
     );
     result
 }
-fn parse_span(inp: String) -> Span {
+fn parse_span(inp: &str) -> Span {
     let nums = inp
         .split_once("..")
         .expect("Lexer Error: Span regex fucked");
@@ -234,7 +236,7 @@ impl_display!(Token, |s: &Token| {
         Token::Import => "use".to_owned(),
         Token::Lbracket => "{".to_owned(),
         Token::Integer(int) => format!("{int}"),
-        Token::Float(float) => format!("{float}"),
+        Token::Float(float) => float.to_string(),
         Token::Loop => "loop".to_owned(),
         Token::Lparen => "(".to_owned(),
         Token::Lt => "<".to_owned(),

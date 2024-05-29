@@ -1,7 +1,7 @@
 use crate::ast::{self, Ident, Name, Pattern, Type};
 use crate::convenience_types::{Error, ParserInput, Spanned};
 use crate::expression::value;
-use crate::{ParseError, Token};
+use crate::Token;
 use chumsky::prelude::*;
 
 pub fn name_parser<'tokens, 'src: 'tokens>() -> impl Parser<
@@ -70,6 +70,7 @@ pub fn type_parser<'tokens, 'src: 'tokens>() -> impl Parser<
         let primitives = select! {Token::Type(x) => x,}.labelled("primitive type");
         let tuple = r#type
             .clone()
+            .map_with(|b, ctx| (b, ctx.span()))
             .separated_by(just(Token::Comma))
             .collect::<Vec<_>>()
             .delimited_by(just(Token::Lparen), just(Token::Rparen))
@@ -91,7 +92,7 @@ pub fn type_parser<'tokens, 'src: 'tokens>() -> impl Parser<
                     .separated_by(just(Token::Comma).then(separator()))
                     .collect()
                     .or_not()
-                    .map(|a| a.unwrap_or(vec![]))
+                    .map(std::option::Option::unwrap_or_default)
                     .delimited_by(just(Token::Lparen), just(Token::Rparen))
                     .map_with(|a, ctx| (a, ctx.span())),
             )
@@ -165,6 +166,7 @@ pub fn unexpected_newline<'tokens, 'src: 'tokens>() -> impl Parser<
     Error<'tokens>,             // Error Type
 > + Clone {
     none_of(Token::Newline)
+        .repeated()
         .ignore_then(choice((
             just(Token::Newline).ignored(),
             end().labelled("EOI"),
@@ -237,7 +239,6 @@ where
             .delimited_by(just(Token::Lparen), just(Token::Rparen)),
     );
     let array_destructure = pattern
-        .clone()
         .separated_by(just(Token::Comma))
         .collect::<Vec<_>>()
         .then_ignore(just(Token::DoubleDot))

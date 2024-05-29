@@ -47,7 +47,7 @@ pub enum Pattern {
 impl fmt::Display for Pattern {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         match self {
-            Self::Token(token) => write!(f, "{}", token),
+            Self::Token(token) => write!(f, "{token}"),
             Self::Label(label) => f.write_str(label),
             Self::EndOfInput => f.write_str("EndOfInput"),
         }
@@ -93,12 +93,7 @@ impl Reason {
     pub fn found(&self) -> Option<crate::Token> {
         match self {
             Self::ExpectedFound { found, .. } => found.clone(),
-            Self::Custom(_) => None,
-            Self::ExpectedFoundHelp {
-                expected,
-                found,
-                help,
-            } => None,
+            Self::Custom(_) | Self::ExpectedFoundHelp { .. } => None,
         }
     }
 
@@ -108,12 +103,7 @@ impl Reason {
     pub fn take_found(&mut self) -> Option<crate::Token> {
         match self {
             Reason::ExpectedFound { found, .. } => found.take(),
-            Reason::Custom(_) => None,
-            Reason::ExpectedFoundHelp {
-                expected,
-                found,
-                help,
-            } => None,
+            Reason::Custom(_) | Reason::ExpectedFoundHelp { .. } => None,
         }
     }
 
@@ -144,7 +134,7 @@ impl Reason {
                     found,
                 }
             }
-            (Reason::Custom(this), Reason::Custom(other)) => todo!(),
+            (Reason::Custom(_this), Reason::Custom(_other)) => todo!(),
             (this @ Reason::Custom(_), _) => this,
             (_, other @ Reason::Custom(_)) => other,
             a => panic!("[INTERNAL ERROR] had to fuse errors {a:?}"),
@@ -165,7 +155,7 @@ pub struct Diagnostic {
 
 impl Diagnostic {
     pub fn new(level: Level, message: impl Into<String>) -> Self {
-        Diagnostic {
+        Self {
             level,
             message: message.into(),
             span: None,
@@ -202,11 +192,43 @@ impl Diagnostic {
     }
     pub fn emit<T: Write>(&self, mut out: T, name: &str, inp: &str) {
         type Report<'a> = ariadne::Report<'a, (&'a str, core::ops::Range<usize>)>;
+        type Informations<'b, 'a> = (
+            Vec<ariadne::Label<(&'b str, std::ops::Range<usize>)>>,
+            Vec<&'a String>,
+            Vec<&'a String>,
+        );
+
+        fn map_children<'a, 'b>(
+            children: &'a [SubDiagnostic],
+            source: &'b str,
+        ) -> Informations<'b, 'a> {
+            let mut labels = vec![];
+            let mut notes = vec![];
+            let mut helps = vec![];
+
+            for child in children {
+                if child.spans.is_empty() {
+                    match child.level {
+                        Level::Note | Level::Debug => notes.push(&child.message),
+                        Level::Help => helps.push(&child.message),
+                        Level::Error | Level::Warning => todo!(),
+                    }
+                    notes.push(&child.message);
+                };
+                labels.extend(child.spans.iter().map(|span| {
+                    ariadne::Label::new((source, (*span).into()))
+                        .with_message(&child.message)
+                        .with_color(level_to_color(child.level))
+                }));
+            }
+
+            (labels, notes, helps)
+        }
         if self.span.is_none() && self.level == Level::Debug {
             Report::build(
                 level_to_kind(self.level),
                 name,
-                self.span.unwrap_or(Span::new(0, 0)).start,
+                self.span.unwrap_or_else(|| Span::new(0, 0)).start,
             )
             .with_message(&self.message)
             .finish()
@@ -219,41 +241,10 @@ impl Diagnostic {
             return;
         };
 
-        fn map_children<'a, 'b>(
-            children: &'a [SubDiagnostic],
-            source: &'b str,
-        ) -> (
-            Vec<ariadne::Label<(&'b str, std::ops::Range<usize>)>>,
-            Vec<&'a String>,
-            Vec<&'a String>,
-        ) {
-            let mut labels = vec![];
-            let mut notes = vec![];
-            let mut helps = vec![];
-
-            for child in children {
-                if child.spans.is_empty() {
-                    match child.level {
-                        Level::Note | Level::Debug => notes.push(&child.message),
-                        Level::Help => helps.push(&child.message),
-                        Level::Error | Level::Warning => todo!(),
-                    }
-                    notes.push(&child.message)
-                }
-                labels.extend(child.spans.iter().map(|span| {
-                    ariadne::Label::new((source, span.clone().into()))
-                        .with_message(&child.message)
-                        .with_color(level_to_color(child.level))
-                }));
-            }
-
-            (labels, notes, helps)
-        }
-
         let builder = ariadne::Report::build(
             level_to_kind(self.level),
             name,
-            self.span.unwrap_or(Span::new(0, 0)).start,
+            self.span.unwrap_or_else(|| Span::new(0, 0)).start,
         )
         .with_message(&self.message);
         let mut builder = if let Some(help) = self.help.clone() {
@@ -268,7 +259,7 @@ impl Diagnostic {
                     ariadne::Label::new((name, span.into()))
                         .with_color(level_to_color(self.level))
                         .with_message(&self.message),
-                )
+                );
             }
         } else {
             let (labels, notes, helps) = map_children(&self.children, name);
@@ -279,13 +270,19 @@ impl Diagnostic {
                 let (start, end) = notes
                     .split_first()
                     .expect("[INTERNALL ERROR] diagnostic has less than 1 note");
-                builder.set_note(end.iter().fold(start.to_string(), |acc, b| acc + ", " + b));
+                builder.set_note(
+                    end.iter()
+                        .fold((*start).to_string(), |acc, b| acc + ", " + b),
+                );
             }
             if !helps.is_empty() {
                 let (start, end) = notes
                     .split_first()
                     .expect("[INTERNALL ERROR] diagnostic has less than 1 help");
-                builder.set_help(end.iter().fold(start.to_string(), |acc, b| acc + ", " + b));
+                builder.set_help(
+                    end.iter()
+                        .fold((*start).to_string(), |acc, b| acc + ", " + b),
+                );
             }
         }
         builder.finish().eprint((name, Source::from(inp))).unwrap();
@@ -322,22 +319,19 @@ impl MultiSpan for &[Span] {
         self.to_vec()
     }
 }
-fn level_to_kind(level: Level) -> ReportKind<'static> {
+const fn level_to_kind(level: Level) -> ReportKind<'static> {
     match level {
         Level::Error => ReportKind::Error,
         Level::Warning => ReportKind::Warning,
-        Level::Note => ReportKind::Advice,
-        Level::Help => ReportKind::Advice,
+        Level::Note | Level::Help => ReportKind::Advice,
         Level::Debug => ReportKind::Custom("Debug", Color::Cyan),
     }
 }
 
-fn level_to_color(level: Level) -> Color {
+const fn level_to_color(level: Level) -> Color {
     match level {
         Level::Error => Color::Red,
         Level::Warning => Color::Yellow,
-        Level::Note => Color::White,
-        Level::Help => Color::White,
-        Level::Debug => Color::White,
+        Level::Note | Level::Debug | Level::Help => Color::White,
     }
 }

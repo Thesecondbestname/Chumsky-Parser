@@ -5,13 +5,11 @@ use crate::ast::{
 use crate::convenience_parsers::{name_parser, separator, type_parser};
 use crate::convenience_types::{Error, ParserInput, Span, Spanned};
 use crate::lexer::Token;
-use crate::util_parsers::{
-    extra_delimited, irrefutable_pattern, newline, parameter_parser, unexpected_newline,
-};
+use crate::util_parsers::{extra_delimited, irrefutable_pattern, newline, parameter_parser};
 
 use chumsky::prelude::*;
 
-pub fn item_parser<'tokens, 'src: 'tokens, T>(
+pub fn item<'tokens, 'src: 'tokens, T>(
     block: T,
 ) -> (impl Parser<'tokens, ParserInput<'tokens, 'src>, Item, Error<'tokens>> + Clone)
 where
@@ -40,7 +38,7 @@ where
             .map(Item::Enum)
             .labelled("Enum")
             .as_context(),
-        struct_parser(block.clone())
+        struct_parser(block)
             .then_ignore(separator())
             .map(Item::Struct)
             .labelled("Struct")
@@ -136,7 +134,7 @@ where
                 Vec::new(),
                 |acc: Vec<_>, (name, fns): (Option<String>, Vec<Spanned<FunctionDeclaration>>)| {
                     acc.into_iter()
-                        .chain(vec![name.clone()].into_iter().cycle().zip(fns.into_iter()))
+                        .chain(vec![name].into_iter().cycle().zip(fns))
                         .collect::<Vec<(Option<String>, Spanned<FunctionDeclaration>)>>()
                 },
             );
@@ -215,7 +213,7 @@ where
                 Vec::new(),
                 |acc: Vec<_>, (name, fns): (Option<String>, Vec<Spanned<FunctionDeclaration>>)| {
                     acc.into_iter()
-                        .chain(vec![name.clone()].into_iter().cycle().zip(fns.into_iter()))
+                        .chain(vec![name].into_iter().cycle().zip(fns))
                         .collect::<Vec<(Option<String>, Spanned<FunctionDeclaration>)>>()
                 },
             );

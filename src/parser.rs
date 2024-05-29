@@ -2,14 +2,14 @@ use crate::ast::{Block, Expression, Item};
 use crate::convenience_types::{Error, ParserInput, Span, Spanned};
 use crate::error::{errors_to_diagnostics, Diagnostic, ParseError, Pattern};
 use crate::expression::expression;
-use crate::item::item_parser;
+use crate::item::item;
 use crate::lexer::{lex_sketchy_program, Lex, LexError};
 use crate::span::SourceId;
 use crate::Token;
 use chumsky::prelude::*;
 use thiserror::Error as DeriveError;
 
-pub fn block_parser<'tokens, 'src: 'tokens>() -> impl Parser<
+pub fn block<'tokens, 'src: 'tokens>() -> impl Parser<
     'tokens,
     ParserInput<'tokens, 'src>, // Input
     Spanned<Item>,              // Output
@@ -17,7 +17,7 @@ pub fn block_parser<'tokens, 'src: 'tokens>() -> impl Parser<
 > + Clone {
     // import, function, statement
     let x = recursive(|block| {
-        let block_element = item_parser(expression(block.clone()));
+        let block_element = item(expression(block.clone()));
         block_element.map_with(|expr, ctx| (expr, ctx.span()))
     });
     x
@@ -28,9 +28,9 @@ pub fn programm<'tokens, 'src: 'tokens>() -> impl Parser<
     Spanned<Expression>,        // Output
     Error<'tokens>,             // Error Type)
 > + Clone {
-    block_parser()
+    block()
         .recover_with(via_parser(
-            expression(block_parser())
+            expression(block())
                 .then_ignore(crate::util_parsers::newline())
                 .map(|a| (Item::TopLevelExprError(a.0), a.1)),
         ))
@@ -85,10 +85,6 @@ impl<'i, I, L: Default, P: Default> SketchyParserBuilder<'i, I, L, P> {
             parse_result: self.parse_result,
         }
     }
-    pub fn dbg_panic(self) -> Self {
-        panic!();
-        self
-    }
 }
 impl<'i, L, P> SketchyParserBuilder<'i, Initialized, L, P> {
     pub fn parenthesize_program(self) -> Self {
@@ -105,7 +101,7 @@ impl<'i, L, P> SketchyParserBuilder<'i, Initialized, L, P> {
     pub fn lex_sketchy_programm(self) -> LexResult<'i, P> {
         LexResult(
             lex_sketchy_program(&self.input.0)
-                .to_result()
+                .into_result()
                 .map(|lex| SketchyParserBuilder {
                     name: self.name,
                     input: self.input.clone(),
@@ -169,14 +165,14 @@ impl<'a, 'i: 'a, P> SketchyParserBuilder<'i, Initialized, Lexed, P> {
                 }));
             }
             return ParserResult(Err(ParseErr(
-                errs.into_iter().map(|a| a.to_owned()).collect(),
+                errs.into_iter().collect(),
                 ast,
                 self.input.0,
                 self.name,
             )));
         }
         ParserResult(Err(ParseErr(
-            errs.into_iter().map(|s| s.to_owned()).collect(),
+            errs.into_iter().collect(),
             (Expression::ParserError, Span::new(0, 0)),
             self.input.0,
             self.name,
@@ -200,12 +196,15 @@ impl<'i> SketchyParser {
     }
 }
 impl SketchyParser {
-    pub fn ast(&self) -> &Expression {
+    #[must_use]
+    pub const fn ast(&self) -> &Expression {
         &self.parse_result.0
     }
+    #[must_use]
     pub fn into_ast(self) -> Expression {
         self.parse_result.0
     }
+    #[must_use]
     pub fn span_on_src(&self, span: Span) -> String {
         self.input[span.start()..span.end()].to_string()
     }
@@ -247,8 +246,7 @@ impl<'i, P> LexResult<'i, P> {
         } else {
             "paniced in lex Result".to_owned()
         };
-        panic!("{:?}", x);
-        self
+        panic!("{x:?}");
     }
     pub fn into_result(
         self,
@@ -276,8 +274,7 @@ impl<'a> ParserResult<'a> {
         } else {
             "paniced in parserResult".to_owned()
         };
-        panic!("{:?}", x);
-        self
+        panic!("{x:?}");
     }
     pub fn into_result(
         self,

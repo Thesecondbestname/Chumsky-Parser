@@ -1,3 +1,4 @@
+#![allow(clippy::use_self)]
 mod diagnostic;
 
 use crate::{
@@ -24,7 +25,7 @@ pub struct ParseError {
 impl ParseError {
     /// Create an error with a custom message and span
     #[inline]
-    pub fn custom<M: ToString>(span: Span, msg: M) -> Self {
+    pub fn custom<M: ToString>(span: Span, msg: &M) -> Self {
         ParseError {
             span,
             reason: Reason::Custom(Diagnostic::new(Level::Error, msg.to_string())),
@@ -46,6 +47,7 @@ impl ParseError {
         }
     }
     #[inline]
+    #[must_use]
     pub fn expected_found_help(
         span: Span,
         expected: Vec<Pattern>,
@@ -64,16 +66,19 @@ impl ParseError {
     }
 
     /// Get the span associated with this error.
-    pub fn span(&self) -> Span {
+    #[must_use]
+    pub const fn span(&self) -> Span {
         self.span
     }
 
     /// Get the reason for this error.
-    pub fn reason(&self) -> &Reason {
+    #[must_use]
+    pub const fn reason(&self) -> &Reason {
         &self.reason
     }
 
     /// Get the token found by this error when parsing. `None` implies that the error expected the end of input.
+    #[must_use]
     pub fn found(&self) -> Option<Token> {
         self.reason.found()
     }
@@ -87,12 +92,13 @@ impl ParseError {
     }
 
     /// Get an iterator over the expected items associated with this error
+    #[must_use]
     pub fn expected(&self) -> impl ExactSizeIterator<Item = &Pattern> {
         fn push_expected<'a>(reason: &'a Reason, v: &mut Vec<&'a Pattern>) {
             match reason {
-                Reason::ExpectedFound { expected, .. } => v.extend(expected.iter()),
                 Reason::Custom(_) => {}
-                Reason::ExpectedFoundHelp { expected, .. } => v.extend(expected.iter()),
+                Reason::ExpectedFoundHelp { expected, .. }
+                | Reason::ExpectedFound { expected, .. } => v.extend(expected.iter()),
             }
         }
         let mut v = Vec::new();
@@ -114,11 +120,12 @@ impl<'a, 'src> chumsky::error::Error<'a, ParserInput<'a, 'src>> for ParseError {
                 expected: expected
                     .into_iter()
                     .map(|tok| {
-                        tok.map(|inner| Pattern::Token(inner.into_inner()))
-                            .unwrap_or(Pattern::EndOfInput)
+                        tok.map_or(Pattern::EndOfInput, |inner| {
+                            Pattern::Token(inner.into_inner())
+                        })
                     })
                     .collect(),
-                found: found.map(|inner| inner.into_inner()),
+                found: found.map(chumsky::util::Maybe::into_inner),
             },
             context: Vec::new(),
         }
@@ -149,20 +156,16 @@ impl<'a, 'src> chumsky::error::Error<'a, ParserInput<'a, 'src>> for ParseError {
         match &mut self.reason {
             Reason::ExpectedFound { expected, found: _ } => {
                 for new_expected in new_expected {
-                    let new_expected = new_expected
-                        .map(|inner| Pattern::Token(inner.into_inner()))
-                        .unwrap_or(Pattern::EndOfInput);
+                    let new_expected = new_expected.map_or(Pattern::EndOfInput, |inner| {
+                        Pattern::Token(inner.into_inner())
+                    });
                     if !expected[..].contains(&new_expected) {
                         expected.push(new_expected);
                     }
                 }
             }
             Reason::Custom(_) => todo!(),
-            Reason::ExpectedFoundHelp {
-                expected,
-                found,
-                help,
-            } => todo!(),
+            Reason::ExpectedFoundHelp { .. } => todo!(),
         }
         // TOOD: Merge contexts
         self
@@ -180,21 +183,23 @@ impl<'a, 'src> chumsky::error::Error<'a, ParserInput<'a, 'src>> for ParseError {
             Reason::ExpectedFound { expected, found } => {
                 expected.clear();
                 expected.extend(new_expected.into_iter().map(|tok| {
-                    tok.map(|inner| Pattern::Token(inner.into_inner()))
-                        .unwrap_or(Pattern::EndOfInput)
+                    tok.map_or(Pattern::EndOfInput, |inner| {
+                        Pattern::Token(inner.into_inner())
+                    })
                 }));
-                *found = new_found.map(|inner| inner.into_inner());
+                *found = new_found.map(chumsky::util::Maybe::into_inner);
             }
             _ => {
                 self.reason = Reason::ExpectedFound {
                     expected: new_expected
                         .into_iter()
                         .map(|tok| {
-                            tok.map(|inner| Pattern::Token(inner.into_inner()))
-                                .unwrap_or(Pattern::EndOfInput)
+                            tok.map_or(Pattern::EndOfInput, |inner| {
+                                Pattern::Token(inner.into_inner())
+                            })
                         })
                         .collect(),
-                    found: new_found.map(|inner| inner.into_inner()),
+                    found: new_found.map(chumsky::util::Maybe::into_inner),
                 };
             }
         }
@@ -243,8 +248,8 @@ pub fn errors_to_diagnostics<T: std::fmt::Debug>(
             Reason::ExpectedFound { expected, found } => match (expected.is_empty(), found.clone())
             {
                 (true, _) => report_unexpected(span, found),
-                (false, None) => report_expected(span, expected),
-                (false, Some(found)) => report_expected_found(span, expected, found),
+                (false, None) => report_expected(span, &expected),
+                (false, Some(found)) => report_expected_found(span, &expected, &found),
             },
             Reason::Custom(diagnostic) => diagnostic,
             Reason::ExpectedFoundHelp {
@@ -255,18 +260,18 @@ pub fn errors_to_diagnostics<T: std::fmt::Debug>(
                 (true, _) => Diagnostic::spanned(
                     span,
                     Level::Error,
-                    format!("Unexpected {}", found.unwrap_or("Token found".to_owned())),
+                    format!(
+                        "Unexpected {}",
+                        found.unwrap_or_else(|| "Token found".to_owned())
+                    ),
                 )
                 .with_help(help),
-                (false, None) => report_expected(span, expected).with_help(help),
+                (false, None) => report_expected(span, &expected).with_help(help),
                 (false, Some(found)) => {
-                    let patterns = patterns_to_string(expected);
-                    Diagnostic::new(
-                        Level::Error,
-                        format!("Expected {patterns}, found {}", found),
-                    )
-                    .with_child(span, Level::Error, format!("Expected {patterns}"))
-                    .with_help(help)
+                    let patterns = patterns_to_string(&expected);
+                    Diagnostic::new(Level::Error, format!("Expected {patterns}, found {found}"))
+                        .with_child(span, Level::Error, format!("Expected {patterns}"))
+                        .with_help(help)
                 }
             },
         }
@@ -276,16 +281,16 @@ pub fn errors_to_diagnostics<T: std::fmt::Debug>(
     (output, errors.into_iter().map(error_to_diagostic).collect())
 }
 
-fn report_expected_found(span: Span, expected: Vec<Pattern>, found: Token) -> Diagnostic {
+fn report_expected_found(span: Span, expected: &[Pattern], found: &Token) -> Diagnostic {
     let patterns = patterns_to_string(expected);
-    Diagnostic::new(
+    Diagnostic::new(Level::Error, format!("Expected {patterns}, found {found}")).with_child(
+        span,
         Level::Error,
-        format!("Expected {patterns}, found {}", found),
+        format!("Expected {patterns}"),
     )
-    .with_child(span, Level::Error, format!("Expected {patterns}"))
 }
 
-fn report_expected(span: Span, expected: Vec<Pattern>) -> Diagnostic {
+fn report_expected(span: Span, expected: &[Pattern]) -> Diagnostic {
     let message = format!("Expected {}", patterns_to_string(expected));
     Diagnostic::spanned(span, Level::Error, message)
 }
@@ -293,20 +298,13 @@ fn report_expected(span: Span, expected: Vec<Pattern>) -> Diagnostic {
 fn report_unexpected(span: Span, found: Option<Token>) -> Diagnostic {
     let message = format!(
         "Unexpected {}",
-        found
-            .map(|token| token.to_string())
-            .unwrap_or("end of input".to_owned())
+        found.map_or("end of input".to_owned(), |token| token.to_string())
     );
     Diagnostic::spanned(span, Level::Error, message)
 }
 
-fn patterns_to_string(patterns: Vec<Pattern>) -> String {
-    if patterns.is_empty() {
-        return "nothing".into();
-    };
-
+fn patterns_to_string(patterns: &[Pattern]) -> String {
     use std::collections::HashSet;
-    let mut patterns: HashSet<&Pattern> = HashSet::from_iter(patterns.iter());
 
     fn replace_subset(
         super_set: &mut HashSet<&Pattern>,
@@ -331,6 +329,10 @@ fn patterns_to_string(patterns: Vec<Pattern>) -> String {
             haystack.insert(replacement);
         }
     }
+    if patterns.is_empty() {
+        return "nothing".into();
+    };
+    let mut patterns: HashSet<&Pattern> = patterns.iter().collect::<HashSet<_>>();
     replace_element(
         &mut patterns,
         &Pattern::Token(Token::Assign),
@@ -397,13 +399,13 @@ fn patterns_to_string(patterns: Vec<Pattern>) -> String {
         &Pattern::Label("expression"),
     );
 
-    let mut patterns = patterns.into_iter().collect::<Vec<_>>();
+    let patterns = patterns.into_iter().collect::<Vec<_>>();
     let (last, start) = patterns.split_last().unwrap();
     format!(
         "{}{}{last}",
         start
             .iter()
-            .map(|a| a.to_string())
+            .map(std::string::ToString::to_string)
             .collect::<Vec<String>>()
             .join(","),
         if start.is_empty() { "" } else { " or " }

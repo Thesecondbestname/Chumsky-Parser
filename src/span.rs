@@ -13,7 +13,9 @@ pub struct Span {
 }
 
 impl Span {
-    pub fn new(start: Index, end: Index) -> Self {
+    #[must_use]
+    #[inline]
+    pub const fn new(start: Index, end: Index) -> Self {
         Self {
             start,
             end,
@@ -21,11 +23,15 @@ impl Span {
         }
     }
 
+    #[must_use]
+    #[inline]
     pub fn src(self, src: &str) -> &str {
         &src[self.start..self.end]
     }
 
-    pub fn with_id(mut self, id: SourceId) -> Self {
+    #[must_use]
+    #[inline]
+    pub const fn with_id(mut self, id: SourceId) -> Self {
         self.id = id;
         self
     }
@@ -79,7 +85,7 @@ impl chumsky::span::Span for Span {
     type Offset = Index;
 
     fn new(context: Self::Context, range: Range<Self::Offset>) -> Self {
-        Span::from(range).with_id(context)
+        Self::from(range).with_id(context)
     }
 
     fn context(&self) -> Self::Context {
@@ -127,5 +133,4 @@ impl Default for SourceId {
 
 impl SourceId {
     pub const INVALID: Self = Self(0);
-    const FIRST: Self = Self(1);
 }

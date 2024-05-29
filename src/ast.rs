@@ -2,12 +2,6 @@ use crate::convenience_types::Spanned;
 use displaydoc::Display;
 
 #[derive(Debug, Clone)]
-pub enum Instruction {
-    Statement(Box<Statement>),
-    Expression(Box<Expression>),
-}
-
-#[derive(Debug, Clone)]
 pub struct Block(pub Vec<Spanned<Item>>);
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
 pub struct Ident(pub Vec<Spanned<String>>);
@@ -20,7 +14,7 @@ pub enum Pattern {
     Struct(Ident, Vec<(Spanned<Name>, Spanned<Pattern>)>),
     Tuple(Vec<Spanned<Pattern>>),
     Array(Vec<Spanned<Pattern>>, Name),
-    PatternError,
+    Error,
 }
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum Name {
@@ -83,20 +77,6 @@ pub struct StructDeclaration {
 pub struct StructField {
     pub name: Spanned<String>,
     pub r#type: Spanned<Type>,
-}
-#[derive(Debug, Clone)]
-pub enum Statement {
-    ParserError,
-    /// Control Flow! This shit doesn't return anything, rather the expression inside
-    Break(Box<Spanned<Expression>>),
-    /// Loop statement, takes only a codeblock. Might consider making this an expression giving the value after return.
-    Loop(Spanned<Expression>),
-    /// return statements are.... STATEMENTS woo your good at this.
-    Return(Box<Spanned<Expression>>),
-    // Becomes a bit more obvious that they shouldn't return anything when looking at continue.
-    Continue,
-    /// This is the one where a struct is actually constructed
-    WhileLoop(Spanned<Expression>, Vec<Spanned<Expression>>),
 }
 #[derive(Clone, Debug)]
 pub enum Expression {
@@ -188,7 +168,7 @@ pub enum Type {
     Float,
     String,
     Array(Box<Type>, i64),
-    Tuple(Vec<Type>),
+    Tuple(Vec<Spanned<Type>>),
     Char,
     FunctionType(
         Spanned<String>,
@@ -207,11 +187,11 @@ crate::impl_display!(Value, |s: &Value| match s {
     Value::String(string) => string.to_string(),
     Value::Number(Number::Int(int)) => format!("{int}"),
     Value::Number(Number::Float(float)) => format!("{float}"),
-    Value::Array(len, vals) => format!("{{len:{} [{:?}]}}", len, vals),
+    Value::Array(len, vals) => format!("{{len:{len} [{vals:?}]}}"),
     Value::Tuple(vals) => format!("({vals:?})"),
     Value::Char(char) => format!("'{char}'"),
     Value::Bool(bool) => format!("{bool}"),
-    Value::Span(start, end) => format!("{}..{}", start, end),
+    Value::Span(start, end) => format!("{start}..{end}"),
     Value::Option(val) => format!("{val}?"),
     Value::Struct { name, fields } => format!(
         "{} {{{}}}",
@@ -226,7 +206,7 @@ crate::impl_display!(Value, |s: &Value| match s {
     Value::Enum { variant, fields } => format!(
         "{} {{{}}}",
         variant.0,
-        format_join(&fields.0, ",").unwrap_or("".to_owned())
+        format_join(&fields.0, ",").unwrap_or_default()
     ),
 });
 crate::impl_display!(MathOp, |s: &MathOp| match s {
@@ -246,14 +226,14 @@ crate::impl_display!(Expression, |s: &Expression| {
         Expression::FunctionCall(called, args) => format!(
             "{{{}({})}}",
             called.0,
-            format_join(&args, ",").unwrap_or("".to_owned())
+            format_join(args, ",").unwrap_or_default()
         ),
         Expression::MethodCall(on, name, args) => {
             format!(
                 "{{{}.{}({})}}",
                 on.0,
                 name,
-                format_join(&args, ",").unwrap_or("".to_owned())
+                format_join(args, ",").unwrap_or_default()
             )
         }
         Expression::Block(block) => format!("{block}"),
@@ -289,7 +269,7 @@ crate::impl_display!(If, |s: &If| {
     format!("if {} {{{}}}", condition.0, blocc.0)
 });
 crate::impl_display!(Ident, |s: &Ident| {
-    format_join(&s.0, "::").unwrap_or("".to_owned())
+    format_join(&s.0, "::").unwrap_or_default()
 });
 crate::impl_display!(Type, |s: &Type| {
     match s {
@@ -299,22 +279,19 @@ crate::impl_display!(Type, |s: &Type| {
         Type::Float => "float".to_owned(),
         Type::String => "String".to_owned(),
         Type::Array(ty, size) => format!("[{ty};{size}]"),
-        Type::Tuple(t) => format!("({:?})", t),
+        Type::Tuple(t) => format!("({})", format_join(t, ",").unwrap_or_default()),
         Type::Char => "char".to_owned(),
         Type::Span => "span".to_owned(),
         Type::Path(p) => format!("{}", p.0),
         Type::FunctionType((name, _), b, c) => {
             if let Some(a) = c {
                 return format!(
-                    "fn {name}({}) {}",
-                    format_join(&b.0, ",").unwrap_or("".to_string()),
-                    format!("-> {}", a.0)
+                    "fn {name}({}) -> {}",
+                    format_join(&b.0, ",").unwrap_or_default(),
+                    a.0
                 );
             };
-            format!(
-                "fn {name}({})",
-                format_join(&b.0, ",").unwrap_or("".to_string())
-            )
+            format!("fn {name}({})", format_join(&b.0, ",").unwrap_or_default())
         }
     }
 });
@@ -328,17 +305,13 @@ crate::impl_display!(StructDeclaration, |s: &StructDeclaration| {
     format!(
         "struct {0} {{ {fields}}}{1}",
         s.name,
-        s.impl_blocks
-            .iter()
-            .map(|a| format!(
+        s.impl_blocks.iter().fold(String::new(), |acc, a| acc
+            + &format!(
                 "impl {}{}{{{}}}",
-                a.0.clone()
-                    .map(|a| a.to_owned() + " for ")
-                    .unwrap_or("".to_string()),
+                a.0.clone().map(|a| a + " for ").unwrap_or_default(),
                 s.name,
                 a.1 .0
             ))
-            .collect::<String>()
     )
 });
 crate::impl_display!(FunctionDeclaration, |s: &FunctionDeclaration| {
@@ -352,7 +325,7 @@ crate::impl_display!(FunctionDeclaration, |s: &FunctionDeclaration| {
                         format!("{acc}, {}: {}", a.0 .1 .0.clone(), a.0 .0 .0.clone())
                     })
             } else {
-                "".to_string()
+                String::new()
             }
         },
         s.return_type.0,
@@ -363,10 +336,7 @@ crate::impl_display!(Item, |s: &Item| {
     match s {
         Item::Function(r#fn) => r#fn.to_string(),
         Item::Import((imp, _)) => {
-            format!(
-                "use {};",
-                format_join(&imp.0, "::").unwrap_or("".to_owned())
-            )
+            format!("use {};", format_join(&imp.0, "::").unwrap_or_default())
         }
         Item::Enum((
             EnumDeclaration {
@@ -383,7 +353,7 @@ crate::impl_display!(Item, |s: &Item| {
                     + &format!(
                         "{}({}),",
                         v.name,
-                        format_join(&v.fields, ",").unwrap_or("".to_owned())
+                        format_join(&v.fields, ",").unwrap_or_default()
                     )),
                 impl_blocks
             )
@@ -408,7 +378,7 @@ crate::impl_display!(Item, |s: &Item| {
 });
 crate::impl_display!(Name, |s: &Name| {
     match s {
-        Name::Name(name) => format!("{}", format_join(&name, "::").unwrap_or("".to_owned())),
+        Name::Name(name) => format_join(name, "::").unwrap_or_default(),
         Name::Underscore => "_".to_string(),
     }
 });
@@ -427,58 +397,35 @@ crate::impl_display!(Pattern, |s: &Pattern| {
             "{name}{{{}{}}}",
             format!(
                 "{}:{}",
-                pat.iter().next().unwrap().0 .0,
-                pat.iter().next().unwrap().1 .0
+                pat.first().unwrap().0 .0,
+                pat.first().unwrap().1 .0
             ),
             pat.iter()
                 .skip(1)
                 .fold(String::new(), |acc, (name, pat)| acc
                     + &format!(", {}: {}", name.0, pat.0))
         ),
-        Pattern::Tuple(tuple) => format!("({})", format_join(tuple, ",").unwrap_or("".to_owned())),
-        Pattern::Array(pats, end) => format!(
-            "[{}{}..{end}]",
-            pats.iter().next().unwrap().0,
-            pats.iter()
-                .skip(1)
-                .fold(String::new(), |acc, b| format!("{}, {}", acc, b.0))
-        ),
+        Pattern::Tuple(tuple) => format!("({})", format_join(tuple, ",").unwrap_or_default()),
+        Pattern::Array(pats, end) => {
+            format!("[{}..{end}]", format_join(pats, ",").unwrap_or_default())
+        }
         Pattern::Name(name) => name.to_string(),
         Pattern::Value(e) => e.0.to_string(),
-        Pattern::PatternError => "Bad pattern(probably expression)".to_owned(),
-    }
-});
-crate::impl_display!(Statement, |s: &Statement| {
-    match s {
-        Statement::ParserError => "Error while parsing Statement".to_owned(),
-        Statement::Break(val) => format!("Break {};", val.0),
-        Statement::Loop(blocc) => format!("loop ({});", blocc.0),
-        Statement::Return(val) => format!("return {};", val.0),
-        Statement::Continue => "continue;".to_string(),
-        Statement::WhileLoop(_, _) => todo!(),
+        Pattern::Error => "Bad pattern(probably expression)".to_owned(),
     }
 });
 impl Number {
+    #[inline]
     pub fn from_i32(num: i32) -> Self {
         Number::Int(num.into())
     }
+    #[inline]
     pub fn from_f32(num: f32) -> Self {
         Number::Float(num.into())
     }
 }
-impl Expression {
-    /// Converts an Expression To an Instruction
-    pub fn to_instruction(self) -> Instruction {
-        Instruction::Expression(Box::new(self))
-    }
-}
-impl Statement {
-    pub fn to_instruction(self) -> Instruction {
-        Instruction::Statement(Box::new(self))
-    }
-}
 fn format_join<T: ToString>(
-    obj: &Vec<(T, crate::convenience_types::Span)>,
+    obj: &[(T, crate::convenience_types::Span)],
     join: &str,
 ) -> Option<String> {
     let (first, rest) = obj.split_first()?;
@@ -505,26 +452,6 @@ macro_rules! display_inner {
         impl std::fmt::Display for $struct_name {
             fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
                 write!(f, "{:#?}", stringify!($struct_name))
-            }
-        }
-    };
-}
-#[macro_export]
-macro_rules! impl_to_Instruction {
-    ($name: ident, $closure :expr) => {
-        impl<'Inp> ToInstruction<'Inp> for $name<'Inp> {
-            fn into_instruction(self) -> Instruction<'Inp> {
-                $closure(self.clone())
-            }
-        }
-    };
-}
-#[macro_export]
-macro_rules! impl_to_Instruction_nolife {
-    ($name: ident, $closure :expr) => {
-        impl ToInstruction for $name {
-            fn into_instruction(self) -> Instruction {
-                $closure(self.clone())
             }
         }
     };

@@ -7,13 +7,13 @@ mod item;
 mod lexer;
 mod parser;
 mod span;
-mod statement_parser;
 mod util_parsers;
 
 pub use parser::SketchyParser;
 pub type OutputType = convenience_types::Spanned<ast::Expression>;
 pub use crate::error::ParseError;
-pub fn empty_span() -> span::Span {
+#[must_use]
+pub const fn empty_span() -> span::Span {
     span::Span::new(0, 0)
 }
 pub mod convenience_types {

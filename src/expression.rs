@@ -1,4 +1,4 @@
-#[allow(clippy::too_many_lines)]
+#![allow(clippy::too_many_lines)]
 use crate::ast::{BinaryOp, Block, ComparisonOp, Expression, If, Item, MathOp, Number, Value};
 use crate::convenience_types::{Error, ParserInput, Span, Spanned};
 use crate::util_parsers::{

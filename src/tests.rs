@@ -262,10 +262,10 @@ fn test(input: &str, name: &'static str) -> anyhow::Result<()> {
         .dbg_print_input()
         .lex_sketchy_programm()
         .print_errors(|span, token, input, name| {
-            let x = Report::build::<&str>(ReportKind::Error, name, 12)
+            Report::build::<&str>(ReportKind::Error, name, 12)
                 .with_message(format!("Error while lexing test {input}"))
                 .with_label(
-                    Label::new((name, span.start - 1..span.end - 1.clone()))
+                    Label::new((name, span.start - 1..span.end - 1))
                         .with_message(format!("Found unexpected Token {token}"))
                         .with_color(a),
                 )
@@ -276,8 +276,8 @@ fn test(input: &str, name: &'static str) -> anyhow::Result<()> {
         .into_result()?
         .remove_duplicate_newline()
         .parse_sketchy_programm()
-        .print_errors(|a, b, c, d| {
-            a.emit(std::io::stdout(), d, c);
+        .print_errors(|a, _ast, inp, name| {
+            a.emit(std::io::stdout(), name, inp);
         })
         .dbg_print_ast()
         .into_result()?
