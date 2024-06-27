@@ -13,24 +13,24 @@ fn basic_lex() -> anyhow::Result<()> {
         lmao# int,
         lmao2# int
         impl Add:
-            add: Self; int (
+            add#int: Self; (
                 self.lmao + self.lmao2
             )
         ;
         impl:
-            new: 
-                window #Window; int ( 
+            new#int: 
+                window #Window; ( 
                  a-4 *3
             )   
-            draw: 
+            draw#int : 
                 state #SnekGame, 
                 frame #Canvas, 
-                window #Window; int ( 
+                window #Window; ( 
                  a-4 *3
             )   
         ;
     ;
-    add: x#int, y#int; int (
+    add#int : x#int, y#int; (
         match x if 
             4 then "four",
             _ then x + y
@@ -68,16 +68,16 @@ fn struct_functions() -> anyhow::Result<()> {
         lmao# int,
         lmao2# int,
         impl Add:
-            draw: 
+            draw#int: 
                 state #SnekGame, 
                 frame #Canvas, 
-                window #Window; int ( 
+                window #Window;( 
                  a-4 *3
             )   
         ;
         impl:
-            new: 
-                window #Window; int ( 
+            new#int: 
+                window #Window; ( 
                  a-4 *3
             )   
         ;
@@ -159,10 +159,10 @@ fn r#continue() -> anyhow::Result<()> {
 }
 #[test]
 fn function_definitions() -> anyhow::Result<()> {
-    let input = "draw: 
+    let input = "draw#int: 
     state #SnekGame, 
     frame #Canvas, 
-    window #Window; int ( 
+    window #Window; ( 
          a-4 *3
     )";
     test(input, "function_definitions")

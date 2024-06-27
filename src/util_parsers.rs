@@ -159,22 +159,6 @@ pub fn newline<'tokens, 'src: 'tokens>() -> impl Parser<
     ))
     .labelled("Separator")
 }
-pub fn unexpected_newline<'tokens, 'src: 'tokens>() -> impl Parser<
-    'tokens,
-    ParserInput<'tokens, 'src>, // Input
-    (),                         // Output
-    Error<'tokens>,             // Error Type
-> + Clone {
-    none_of(Token::Newline)
-        .repeated()
-        .ignore_then(choice((
-            just(Token::Newline).ignored(),
-            end().labelled("EOI"),
-            just(Token::Rparen).rewind().ignored(),
-            just(Token::Lparen).rewind().ignored(),
-        )))
-        .labelled("Unexpected Separator")
-}
 pub fn irrefutable_pattern<'tokens, 'src: 'tokens>() -> impl Parser<
     'tokens,
     ParserInput<'tokens, 'src>, // Input

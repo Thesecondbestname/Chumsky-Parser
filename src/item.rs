@@ -66,17 +66,18 @@ where
         .labelled("arguments");
     let function = name_parser()
         .map_with(|name, ctx| (name, ctx.span()))
+        .then(
+            just(Token::Hashtag).ignore_then(
+            type_parser()
+                .map_with(|r#type, ctx| -> (Type, Span) { (r#type, ctx.span()) })
+                .labelled("return type")),
+        )
         .then_ignore(just(Token::Colon).then(separator()))
         .then(arguments)
         .then_ignore(just(Token::Semicolon).padded_by(separator()))
-        .then(
-            type_parser()
-                .map_with(|r#type, ctx| -> (Type, Span) { (r#type, ctx.span()) })
-                .labelled("return type"),
-        )
         .then(block.clone())
         .map(
-            |(((name, arguments), return_type), block)| FunctionDeclaration {
+            |(((name, return_type), arguments), block)| FunctionDeclaration {
                 name,
                 return_type,
                 arguments,

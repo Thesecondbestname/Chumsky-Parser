@@ -63,8 +63,8 @@ pub enum Token {
     Then,
     #[token("Self")]
     Self_,
-    #[token("continue")]
-    Continue,
+    #[token("for")]
+    For,
     #[token("impl")]
     Impl,
     #[token("break")]
@@ -118,7 +118,6 @@ pub enum Token {
     QuestionMark,
     #[token("*")]
     Mul,
-    // !=
     #[token("!=")]
     Neq,
     #[token("or")]
@@ -222,7 +221,7 @@ impl_display!(Token, |s: &Token| {
         Token::Hashtag => "#".to_owned(),
         Token::Slash => "/".to_owned(),
         Token::Else => "else".to_owned(),
-        Token::Continue => "continue".to_owned(),
+        Token::For => "for".to_owned(),
         Token::Break => "break".to_owned(),
         Token::Return => "return".to_owned(),
         Token::Enum => "enum".to_owned(),
