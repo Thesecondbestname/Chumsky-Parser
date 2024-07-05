@@ -383,8 +383,6 @@ fn patterns_to_string(patterns: &[Pattern]) -> String {
             Pattern::Label("literal"),
             Pattern::Token(Token::Lparen),
             Pattern::Token(Token::Lbracket),
-            Pattern::Token(Token::Break),
-            Pattern::Token(Token::Return),
         ],
         &Pattern::Label("expression"),
     );
@@ -398,16 +396,25 @@ fn patterns_to_string(patterns: &[Pattern]) -> String {
         ],
         &Pattern::Label("expression"),
     );
+    let parenthesize = |x: String| {
+        if !x.chars().any(char::is_alphanumeric) {
+            "\"".to_owned() + &x + "\""
+        } else {
+            x
+        }
+    };
 
     let patterns = patterns.into_iter().collect::<Vec<_>>();
     let (last, start) = patterns.split_last().unwrap();
     format!(
-        "{}{}{last}",
+        "{}{}{}",
         start
             .iter()
             .map(std::string::ToString::to_string)
+            .map(parenthesize)
             .collect::<Vec<String>>()
-            .join(","),
-        if start.is_empty() { "" } else { " or " }
+            .join(", "),
+        if start.is_empty() { "" } else { " or " },
+        parenthesize(last.to_string())
     )
 }

@@ -1,5 +1,4 @@
 use crate::convenience_types::Spanned;
-use displaydoc::Display;
 
 #[derive(Debug, Clone)]
 pub struct Block(pub Vec<Spanned<Item>>);
@@ -38,7 +37,11 @@ pub enum Item {
 #[derive(Debug, Clone)]
 pub struct Trait(pub String, pub Vec<Spanned<TraitFns>>);
 #[derive(Debug, Clone)]
-pub struct TraitFns(pub String, pub Vec<Spanned<Type>>, pub Spanned<Type>);
+pub struct TraitFns(
+    pub String,
+    pub Vec<Spanned<Type>>,
+    pub Option<Spanned<Type>>,
+);
 #[derive(Debug, Clone)]
 pub struct VariableDeclaration(pub Spanned<Pattern>, pub Spanned<Expression>);
 #[derive(Debug, Clone)]
@@ -83,17 +86,17 @@ pub enum Expression {
     ParserError,
     TopLvlExpr(Box<Spanned<Expression>>),
     If(Box<If>),
+    For(Box<For>),
     Match {
         condition: Box<Spanned<Expression>>,
         arms: Vec<(Spanned<Pattern>, Spanned<Expression>)>,
     },
     Ident(Ident),
-    List(Vec<Self>),
+    // List(Vec<Spanned<Self>>),
     FunctionCall(Box<Spanned<Self>>, Vec<Spanned<Self>>),
     MethodCall(Box<Spanned<Self>>, Ident, Vec<Spanned<Self>>),
     Block(Block),
     Value(Value),
-    FieldAccess(Box<Spanned<Self>>, Spanned<String>),
     Else(Box<Spanned<Self>>, Box<Spanned<Self>>),
     UnaryBool(Box<Spanned<Self>>),
     UnaryMath(Box<Spanned<Self>>),
@@ -108,6 +111,12 @@ pub struct If {
     pub(crate) condition: Spanned<Expression>,
     pub(crate) code_block: Spanned<Expression>,
 }
+#[derive(Debug, Clone)]
+pub struct For {
+    pub(crate) name: Spanned<String>,
+    pub(crate) iterator: Spanned<Expression>,
+    pub(crate) code_block: Spanned<Expression>,
+}
 #[derive(Clone, Debug)]
 /// An enum of all possible values. A type can have
 pub enum Value {
@@ -117,7 +126,7 @@ pub enum Value {
     Tuple(Vec<Value>),
     Char(char),
     Bool(bool),
-    Span(i32, i32),
+    Span(i32, Option<i32>),
     Option(Box<Expression>),
     Struct {
         name: Spanned<Ident>,
@@ -135,29 +144,19 @@ pub enum MathOp {
     Div,
     Mul,
 }
-#[derive(Clone, Debug, Display)]
+#[derive(Clone, Debug)]
 pub enum ComparisonOp {
-    /// >
     Lt,
-    /// <
     Gt,
-    /// >=
     Lte,
-    /// <=
     Gte,
-    /// !=
     Neq,
-    /// ==
     Eq,
 }
-#[derive(Clone, Debug, Display)]
+#[derive(Clone, Debug)]
 pub enum BinaryOp {
-    /// &&
     And,
-    /// ||
     Or,
-    /// !|
-    Xor,
 }
 /// The type of an expression
 #[derive(Debug, Clone, Eq, PartialEq, Hash)]
@@ -171,7 +170,7 @@ pub enum Type {
     Tuple(Vec<Spanned<Type>>),
     Char,
     FunctionType(
-        Spanned<String>,
+        // Spanned<String>,
         Spanned<Vec<Spanned<Self>>>,
         Option<Box<Spanned<Self>>>,
     ),
@@ -183,6 +182,18 @@ pub enum Number {
     Int(i64),
     Float(f64),
 }
+crate::impl_display!(BinaryOp, |s: &BinaryOp| match s {
+    BinaryOp::And => "&&",
+    BinaryOp::Or => "||",
+});
+crate::impl_display!(ComparisonOp, |s: &ComparisonOp| match s {
+    ComparisonOp::Lt => "<",
+    ComparisonOp::Gt => ">",
+    ComparisonOp::Lte => "<=",
+    ComparisonOp::Gte => ">=",
+    ComparisonOp::Neq => "!=",
+    ComparisonOp::Eq => "==",
+});
 crate::impl_display!(Value, |s: &Value| match s {
     Value::String(string) => string.to_string(),
     Value::Number(Number::Int(int)) => format!("{int}"),
@@ -191,7 +202,10 @@ crate::impl_display!(Value, |s: &Value| match s {
     Value::Tuple(vals) => format!("({vals:?})"),
     Value::Char(char) => format!("'{char}'"),
     Value::Bool(bool) => format!("{bool}"),
-    Value::Span(start, end) => format!("{start}..{end}"),
+    Value::Span(start, end) => format!(
+        "{start}..{}",
+        end.map(|x| x.to_string()).unwrap_or_default()
+    ),
     Value::Option(val) => format!("{val}?"),
     Value::Struct { name, fields } => format!(
         "{} {{{}}}",
@@ -250,7 +264,9 @@ crate::impl_display!(Expression, |s: &Expression| {
             arms.iter().fold(String::new(), |acc, it| acc
                 + &format!("{} => {},", it.0 .0, it.1 .0))
         ),
-        fuck => format!("Not yet implemented to display {fuck:#?}"),
+        Expression::TopLvlExpr(_) => "Illegal toplvl expresssion".to_string(),
+        Expression::For(_for) => format!("{_for}"),
+        // Expression::List(list) => format!("[{}]", format_join(&list, ", ").unwrap_or_default()),
     }
 });
 
@@ -268,6 +284,14 @@ crate::impl_display!(If, |s: &If| {
     } = s;
     format!("if {} {{{}}}", condition.0, blocc.0)
 });
+crate::impl_display!(For, |s: &For| {
+    let For {
+        code_block,
+        name,
+        iterator,
+    } = s;
+    format!("for {} in {} {{{}}}", name.0, iterator.0, code_block.0)
+});
 crate::impl_display!(Ident, |s: &Ident| {
     format_join(&s.0, "::").unwrap_or_default()
 });
@@ -283,16 +307,16 @@ crate::impl_display!(Type, |s: &Type| {
         Type::Char => "char".to_owned(),
         Type::Span => "span".to_owned(),
         Type::Path(p) => format!("{}", p.0),
-        Type::FunctionType((name, _), b, c) => {
-            if let Some(a) = c {
-                return format!(
-                    "fn {name}({}) -> {}",
-                    format_join(&b.0, ",").unwrap_or_default(),
+        Type::FunctionType(b, c) => c.as_ref().map_or_else(
+            || format!("fn ({})", format_join(&b.0, ",").unwrap_or_default()),
+            |a| {
+                format!(
+                    "fn ({}) -> {}",
+                    format_join(&b.0, ", ").unwrap_or_default(),
                     a.0
-                );
-            };
-            format!("fn {name}({})", format_join(&b.0, ",").unwrap_or_default())
-        }
+                )
+            },
+        ),
     }
 });
 crate::impl_display!(StructDeclaration, |s: &StructDeclaration| {
@@ -362,16 +386,21 @@ crate::impl_display!(Item, |s: &Item| {
         Item::Assingment((decl, _)) => format!("let {} = {};", decl.0 .0, decl.1 .0),
         Item::Trait((Trait(a, b), _)) => format!(
             "trait {a} {{{}}}",
-            b.iter()
-                .map(|a| format!(
-                    "fn {}({}) -> {}",
-                    a.0 .0,
-                    a.0 .1
-                        .iter()
-                        .fold(String::new(), |acc, b| format!("{},{acc}", b.0)),
-                    a.0 .2 .0
-                ))
-                .fold(String::new(), |acc, b| format!("{b},{acc}"))
+            format_join(
+                &b.iter()
+                    .map(|a| (
+                        format!(
+                            "fn {}({}) -> {}",
+                            a.0 .0,
+                            format_join(&a.0 .1, ", ").unwrap_or_default(),
+                            a.0 .2.as_ref().map(|x| x.0.to_string()).unwrap_or_default()
+                        ),
+                        a.1
+                    ))
+                    .collect::<Vec<_>>(),
+                ","
+            )
+            .unwrap_or_default()
         ),
         Item::TopLevelExprError(_) => todo!(),
     }

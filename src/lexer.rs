@@ -8,7 +8,7 @@ pub type LexError = Vec<((), std::ops::Range<usize>, String)>;
 #[derive(Debug, PartialEq, Eq, Clone, Hash, PartialOrd, Ord, Copy)]
 pub struct Span {
     pub start: i32,
-    pub end: i32,
+    pub end: Option<i32>,
 }
 /// A Result type holding the successfully lexed tokens and any eventual errors
 pub struct LexResult {
@@ -55,6 +55,10 @@ pub enum Token {
     Hashtag,
     #[token("/")]
     Slash,
+    #[token("if")]
+    If,
+    #[token("use")]
+    Import,
     #[token("else")]
     Else,
     #[token("trait")]
@@ -63,55 +67,48 @@ pub enum Token {
     Then,
     #[token("Self")]
     Self_,
+    #[token("fn")]
+    Fn,
     #[token("for")]
     For,
+    #[token("in")]
+    In,
     #[token("impl")]
     Impl,
-    #[token("break")]
-    Break,
-    #[token("return")]
-    Return,
     #[token("enum")]
     Enum,
-    #[token("==")]
-    Eq,
     #[token("match")]
     Match,
     #[token("false")]
     False,
+    #[token("struct")]
+    Struct,
     #[token("<")]
     Gt,
+    #[token("==")]
+    Eq,
     #[token("<=")]
     Gte,
     #[token("..")]
     DoubleDot,
-    #[regex(r"(\d+)\.\.(\d+)", |lex| parse_span(lex.slice()))]
+    #[regex(r"(\d+)\.\.(\d+)?", |lex| parse_span(lex.slice()))]
     Span(Span),
     #[regex("[a-zA-Z_öäü][a-zA-Z0-9_öäü]*", |lex| lex.slice().to_string())]
     Ident(String),
     #[regex(r#""([^"\\]|\\t|\\u|\\n|\\")*""#, |lex| lex.slice().to_string())]
     LiteralString(String),
-    #[token("if")]
-    If,
-    #[token("use")]
-    Import,
     #[token("{")]
     Lbracket,
     #[regex(r"[0-9]+", |lex| lex.slice().parse::<i64>().unwrap(), priority=2)]
     Integer(i64),
     #[regex(r"[0-9]+\.[0-9]+", |lex| lex.slice().to_owned())]
     r#Float(String),
-    #[token("loop")]
-    Loop,
-    /// (
     #[token("(")]
     Lparen,
-    /// >=
     #[token(">=")]
     Lte,
     #[token(">")]
     Lt,
-    /// %
     #[token("%")]
     Mod,
     #[token("?")]
@@ -126,33 +123,22 @@ pub enum Token {
     #[token("and")]
     #[token("&&")]
     And,
-    #[token("!|")]
-    #[token("xor")]
-    Xor,
-    /// }
     #[token("}")]
     Rbracket,
-    /// ]
     #[token("]")]
     Rbucket,
-    /// [
     #[token("[")]
     Lbucket,
-    /// )
     #[token(")")]
     Rparen,
     #[token(";")]
     Semicolon,
-    #[token("struct")]
-    Struct,
     #[token("-")]
     Minus,
     #[token("true")]
     True,
     #[regex("bool|float|int|char|string", type_matcher)]
     Type(ast::Type),
-    #[token("while")]
-    While,
     Nothing,
 }
 
@@ -204,7 +190,7 @@ fn parse_span(inp: &str) -> Span {
         .expect("Lexer Error: Span regex fucked");
     Span {
         start: nums.0.parse().expect("Lexer Error: Span regex fucked"),
-        end: nums.1.parse().expect("Lexer Error: Span regex fucked"),
+        end: nums.1.parse().map_or(None, |x| Some(x)),
     }
 }
 
@@ -222,13 +208,16 @@ impl_display!(Token, |s: &Token| {
         Token::Slash => "/".to_owned(),
         Token::Else => "else".to_owned(),
         Token::For => "for".to_owned(),
-        Token::Break => "break".to_owned(),
-        Token::Return => "return".to_owned(),
+        Token::Fn => "fn".to_owned(),
+        Token::In => "in".to_owned(),
         Token::Enum => "enum".to_owned(),
         Token::Eq => "==".to_owned(),
         Token::False => "false".to_owned(),
         Token::Gt => ">".to_owned(),
-        Token::Span(Span { start, end }) => format!("{start}..{end}"),
+        Token::Span(Span { start, end }) => format!(
+            "{start}..{}",
+            end.map(|x| x.to_string()).unwrap_or_default()
+        ),
         Token::Ident(ident) => format!("ident: {ident}"),
         Token::LiteralString(string) => format!(r#""{string}""#),
         Token::If => "if".to_owned(),
@@ -236,16 +225,14 @@ impl_display!(Token, |s: &Token| {
         Token::Lbracket => "{".to_owned(),
         Token::Integer(int) => format!("{int}"),
         Token::Float(float) => float.to_string(),
-        Token::Loop => "loop".to_owned(),
         Token::Lparen => "(".to_owned(),
         Token::Lt => "<".to_owned(),
         Token::Mod => "%".to_owned(),
         Token::QuestionMark => "?".to_owned(),
         Token::Mul => "*".to_owned(),
         Token::Neq => "!=".to_owned(),
-        Token::Or => "|| or".to_owned(),
-        Token::And => "&& and".to_owned(),
-        Token::Xor => "!|".to_owned(),
+        Token::Or => "||".to_owned(),
+        Token::And => "&&".to_owned(),
         Token::Rbracket => "}".to_owned(),
         Token::Rparen => ")".to_owned(),
         Token::Semicolon => ";".to_owned(),
@@ -253,7 +240,6 @@ impl_display!(Token, |s: &Token| {
         Token::Minus => "-".to_owned(),
         Token::True => "true".to_owned(),
         Token::Type(type_) => format!("{type_:?}"),
-        Token::While => "while".to_owned(),
         Token::Nothing => "Noting".to_owned(),
         Token::Lte => "<=".to_owned(),
         Token::Gte => ">=".to_owned(),

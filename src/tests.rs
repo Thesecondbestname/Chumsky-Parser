@@ -2,16 +2,21 @@ use crate::parser::SketchyParser;
 use ariadne::{ColorGenerator, Label, Report, ReportKind, Source};
 #[test]
 fn basic_lex() -> anyhow::Result<()> {
-    let lex = r#"use io/print
+    let lex = r#"
     x = xöla
     y = 69 / (56 - 0.45)
-    _ = print(works)
-    enum Foo:
+    _ = print::print(works)
+    Print = use io/print
+    Foo = enum:
         baz
     ;
-    struct baz:
+    Add = trait: 
+        add#int: fn#int:int;,
+        int;
+    ;    
+    Baz = struct:
         lmao# int,
-        lmao2# int
+        lmao2# int,
         impl Add:
             add#int: Self; (
                 self.lmao + self.lmao2
@@ -22,33 +27,35 @@ fn basic_lex() -> anyhow::Result<()> {
                 window #Window; ( 
                  a-4 *3
             )   
-            draw#int : 
-                state #SnekGame, 
-                frame #Canvas, 
-                window #Window; ( 
+            draw#int: 
+                state# SnekGame, 
+                frame# Canvas, 
+                window# Window; ( 
                  a-4 *3
             )   
         ;
     ;
-    add#int : x#int, y#int; (
-        match x if 
+    // add:x, y; = 
+    //     match x if 
+    //         4 then "four",
+    //         _ then x + y
+
+    add#int: x#int, y#int; (
+        match x if
             4 then "four",
             _ then x + y
-        ;
-    )
+        )
     // Some kinda idk  
-    _ = add (4,5). sqrt
+    _ = add (4,5).sqrt
     
-    _ = if x == 4 then (
-        _ = print ("oooops!")
-    ) else (
+    _ = if x == 4 then print ("oooops!") else (
         _ = print ("phew")
     )"#;
     test(lex, "basic_lex")
 }
 #[test]
 fn structs() -> anyhow::Result<()> {
-    let input = r"struct baz:
+    let input = r"baz= struct:
         lmao# int,
         lmao2# int
     ;";
@@ -56,7 +63,7 @@ fn structs() -> anyhow::Result<()> {
 }
 #[test]
 fn enums() -> anyhow::Result<()> {
-    let input = r"enum Baz:
+    let input = r"Baz = enum:
         lmao,
         lmao2(int, bool)
     ;";
@@ -64,11 +71,11 @@ fn enums() -> anyhow::Result<()> {
 }
 #[test]
 fn struct_functions() -> anyhow::Result<()> {
-    let input = r"struct baz:
+    let input = r"baz = struct:
         lmao# int,
         lmao2# int,
         impl Add:
-            draw#int: 
+            draw# int: 
                 state #SnekGame, 
                 frame #Canvas, 
                 window #Window;( 
@@ -87,9 +94,11 @@ fn struct_functions() -> anyhow::Result<()> {
 }
 #[test]
 fn function_types() -> anyhow::Result<()> {
-    let input = "trait Add: 
-            add: fn(int)#int,
-            int; int
+    let input = "Add = trait: 
+            add#int: 
+                fn#int: int,int;, 
+                int
+            ; 
         ;";
     test(input, "function_types")
 }
@@ -100,7 +109,7 @@ fn method_calls() -> anyhow::Result<()> {
 }
 #[test]
 fn traits() -> anyhow::Result<()> {
-    let input = "trait Add: add:int, int; int;";
+    let input = "Add = trait: add#int:int, int; ;";
     test(input, "traits")
 }
 #[test]
@@ -110,7 +119,7 @@ fn enum_destructuring() -> anyhow::Result<()> {
 }
 #[test]
 fn struct_destructuring() -> anyhow::Result<()> {
-    let input = "Person(name# (name, _), pattern# _) = y";
+    let input = "Person: name#(name, _), pattern#_ ; = y";
     test(input, "struct_destructuring")
 }
 #[test]
@@ -120,27 +129,18 @@ fn array_destructuring() -> anyhow::Result<()> {
 }
 #[test]
 fn paths() -> anyhow::Result<()> {
-    let input = "x =std::core::rnd(crate::here::info)";
+    let input = "x = std::core::rnd(crate::here::info)";
     test(input, "paths")
 }
 #[test]
 fn struct_construction() -> anyhow::Result<()> {
-    let input = r#"x = Dude { name= "Kevin", mood= Mood::Sadge}"#;
+    let input = r#"x = Dude: name= "Kevin", mood= Mood::Sadge;"#;
     test(input, "struct_construction")
 }
 #[test]
 fn enum_construction() -> anyhow::Result<()> {
     let input = "x = Some(24)";
     test(input, "enum_construction")
-}
-#[test]
-fn loops() -> anyhow::Result<()> {
-    let input = "loop (
-        a = 5
-        return 3
-        continue
-    \n)";
-    test(input, "loops")
 }
 #[test]
 fn r#return() -> anyhow::Result<()> {
@@ -151,11 +151,6 @@ fn r#return() -> anyhow::Result<()> {
 fn top_level_expression() -> anyhow::Result<()> {
     let input = "print(hello)";
     test(input, "top_level_expression")
-}
-#[test]
-fn r#continue() -> anyhow::Result<()> {
-    let input = "loop (continue)";
-    test(input, "continue")
 }
 #[test]
 fn function_definitions() -> anyhow::Result<()> {
@@ -175,7 +170,7 @@ fn span() -> anyhow::Result<()> {
 }
 #[test]
 fn import() -> anyhow::Result<()> {
-    let input = r"use foo/bar/baz";
+    let input = r"baz = use foo/bar/baz";
     test(input, "use")
 }
 #[test]
@@ -218,7 +213,10 @@ fn string() -> anyhow::Result<()> {
 }
 #[test]
 fn r#match() -> anyhow::Result<()> {
-    let input = "x = match Some(x) if Some(e) then e, None then panic();";
+    let input = "
+    x = match Some(x) if 
+            Some(e) then e, 
+            None then panic()";
     test(input, "match")
 }
 #[test]
@@ -233,6 +231,11 @@ fn multiple_statements() -> anyhow::Result<()> {
 fn conditions() -> anyhow::Result<()> {
     let input = r"g = if (4 == 4) then (x = 3)";
     test(input, "conditions")
+}
+#[test]
+fn for_loops() -> anyhow::Result<()> {
+    let input = r"g = for i in 0..10 then i";
+    test(input, "for_loops")
 }
 #[test]
 fn conditions_inverted_parens() -> anyhow::Result<()> {

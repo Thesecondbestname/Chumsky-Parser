@@ -83,25 +83,22 @@ pub fn type_parser<'tokens, 'src: 'tokens>() -> impl Parser<
             .delimited_by(just(Token::Lbracket), just(Token::Rbracket))
             .map(|(r#type, len)| Type::Array(Box::new(r#type), len))
             .labelled("Array");
-        let function_type = name_parser()
-            .map_with(|a, ctx| (a, ctx.span()))
+        let function_type = just(Token::Fn)
+            .ignore_then(
+                just(Token::Hashtag)
+                    .ignore_then(r#type.clone().map_with(|a, ctx| Box::new((a, ctx.span()))))
+                    .or_not(),
+            )
             .then(
                 r#type
                     .clone()
                     .map_with(|a, ctx| (a, ctx.span()))
                     .separated_by(just(Token::Comma).then(separator()))
                     .collect()
-                    .or_not()
-                    .map(std::option::Option::unwrap_or_default)
-                    .delimited_by(just(Token::Lparen), just(Token::Rparen))
+                    .delimited_by(just(Token::Colon), just(Token::Semicolon))
                     .map_with(|a, ctx| (a, ctx.span())),
             )
-            .then(
-                just(Token::Hashtag)
-                    .ignore_then(r#type.map_with(|a, ctx| Box::new((a, ctx.span()))))
-                    .or_not(),
-            )
-            .map(|((name, args), ret)| Type::FunctionType(name, args, ret));
+            .map(|(ret, args)| Type::FunctionType(args, ret));
         choice((
             tuple,
             primitives,
@@ -220,7 +217,7 @@ where
             .then(pattern.clone())
             .separated_by(just(Token::Comma))
             .collect()
-            .delimited_by(just(Token::Lparen), just(Token::Rparen)),
+            .delimited_by(just(Token::Colon), just(Token::Semicolon)),
     );
     let array_destructure = pattern
         .separated_by(just(Token::Comma))

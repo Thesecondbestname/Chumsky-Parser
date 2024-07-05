@@ -15,7 +15,7 @@ pub fn item<'tokens, 'src: 'tokens, T>(
 where
     T: Parser<'tokens, ParserInput<'tokens, 'src>, Spanned<Expression>, Error<'tokens>>
         + Clone
-        + 'tokens, // Statement
+        + 'tokens,
 {
     choice((
         assingment(block.clone())
@@ -68,9 +68,10 @@ where
         .map_with(|name, ctx| (name, ctx.span()))
         .then(
             just(Token::Hashtag).ignore_then(
-            type_parser()
-                .map_with(|r#type, ctx| -> (Type, Span) { (r#type, ctx.span()) })
-                .labelled("return type")),
+                type_parser()
+                    .map_with(|r#type, ctx| -> (Type, Span) { (r#type, ctx.span()) })
+                    .labelled("return type"),
+            ),
         )
         .then_ignore(just(Token::Colon).then(separator()))
         .then(arguments)
@@ -111,8 +112,9 @@ where
                 .collect::<Vec<Spanned<FunctionDeclaration>>>(),
         )
         .then_ignore(just(Token::Semicolon).padded_by(separator()));
-    let r#struct = just(Token::Struct)
-        .ignore_then(name_parser())
+    let r#struct = name_parser()
+        .then_ignore(just(Token::Assign))
+        .then_ignore(just(Token::Struct))
         .then_ignore(just(Token::Colon))
         .then_ignore(separator())
         .then(
@@ -150,7 +152,6 @@ where
         });
     r#struct
 }
-
 pub fn enum_parser<'tokens, 'src: 'tokens, T>(
     expr: T,
 ) -> impl Parser<'tokens, ParserInput<'tokens, 'src>, Spanned<EnumDeclaration>, Error<'tokens>> + Clone
@@ -190,8 +191,9 @@ where
         )
         .then_ignore(just(Token::Semicolon).padded_by(separator()))
         .labelled("Impl block");
-    let r#enum = just(Token::Enum)
-        .ignore_then(name_parser())
+    let r#enum = name_parser()
+        .then_ignore(just(Token::Assign))
+        .then_ignore(just(Token::Enum))
         .then_ignore(just(Token::Colon))
         .then_ignore(separator())
         .then(
@@ -233,12 +235,14 @@ where
 pub fn import<'tokens, 'src: 'tokens>(
 ) -> impl Parser<'tokens, ParserInput<'tokens, 'src>, Spanned<Import>, Error<'tokens>> + Clone {
     let ident = name_parser();
-    let import = just(Token::Import)
+    let import = name_parser()
+        //. FAT TODO: UTILIZE NAME GIVEN TO MODULE
+        .ignore_then(just(Token::Assign))
+        .ignore_then(just(Token::Import))
         .ignore_then(
             ident
                 .clone()
                 .map_with(|module, ctx| (module, ctx.span()))
-                // TODO: Use path separator
                 .separated_by(just(Token::Slash))
                 .collect(),
         )
@@ -268,6 +272,11 @@ pub fn trait_parser<'tokens, 'src: 'tokens>(
 ) -> impl Parser<'tokens, ParserInput<'tokens, 'src>, Spanned<Trait>, Error<'tokens>> + Clone {
     let fns = name_parser()
         .then(
+            just(Token::Hashtag)
+                .ignore_then(type_parser().map_with(|ty, ctx| (ty, ctx.span())))
+                .or_not(),
+        )
+        .then(
             type_parser()
                 .map_with(|a, ctx| (a, ctx.span()))
                 .separated_by(just(Token::Comma).then(separator()))
@@ -277,10 +286,10 @@ pub fn trait_parser<'tokens, 'src: 'tokens>(
                     just(Token::Semicolon).padded_by(separator()),
                 ),
         )
-        .then(type_parser().map_with(|ty, ctx| (ty, ctx.span())))
-        .map_with(|((a, b), c), ctx| (TraitFns(a, b, c), ctx.span()));
-    just(Token::Trait)
-        .ignore_then(name_parser())
+        .map_with(|((name, ret), args), ctx| (TraitFns(name, args, ret), ctx.span()));
+    let r#trait = name_parser()
+        .then_ignore(just(Token::Assign))
+        .then_ignore(just(Token::Trait))
         .then(
             fns.separated_by(just(Token::Comma).padded_by(separator()))
                 .collect()
@@ -288,6 +297,6 @@ pub fn trait_parser<'tokens, 'src: 'tokens>(
                     just(Token::Colon).padded_by(separator()),
                     just(Token::Semicolon).padded_by(separator()),
                 ),
-        )
-        .map_with(|(a, b), ctx| (Trait(a, b), ctx.span()))
+        );
+    return r#trait.map_with(|(a, b), ctx| (Trait(a, b), ctx.span()));
 }

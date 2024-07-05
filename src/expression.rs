@@ -1,5 +1,5 @@
 #![allow(clippy::too_many_lines)]
-use crate::ast::{BinaryOp, Block, ComparisonOp, Expression, If, Item, MathOp, Number, Value};
+use crate::ast::{BinaryOp, Block, ComparisonOp, Expression, For, If, Item, MathOp, Number, Value};
 use crate::convenience_types::{Error, ParserInput, Span, Spanned};
 use crate::util_parsers::{
     extra_delimited, ident_parser, name_parser, refutable_pattern, separator, type_ident_parser,
@@ -35,7 +35,7 @@ where
                     .then(expression.clone())
                     .separated_by(just(Token::Comma))
                     .collect::<Vec<_>>()
-                    .delimited_by(just(Token::Lbracket), just(Token::Rbracket))
+                    .delimited_by(just(Token::Colon), just(Token::Semicolon))
                     .map_with(|a, ctx| (a, ctx.span())),
             )
             .map(|(name, args)| Expression::Value(Value::Struct { name, fields: args }))
@@ -204,7 +204,6 @@ where
                 let op = select! {
                     Token::And => BinaryOp::And,
                     Token::Or => BinaryOp::Or,
-                    Token::Xor => BinaryOp::Xor
                 };
                 else_expression.clone().foldl(
                     op.then(sum).repeated(),
@@ -240,12 +239,12 @@ where
             .labelled("comparison")
             .as_context();
 
-            // if => "if" expr block else
+            // if => "if" expr "then" expr
             let if_ = just(Token::If)
                 .ignore_then(expression.clone())
                 .recover_with(via_parser(nested_delimiters(
                     Token::If,
-                    Token::Lparen,
+                    Token::Then,
                     [
                         (Token::Lbracket, Token::Rbracket),
                         (Token::Lparen, Token::Semicolon),
@@ -279,16 +278,34 @@ where
                 .labelled("if *expression*");
             let r#match = just(Token::Match)
                 .ignore_then(expression.clone())
+                .recover_with(via_parser(nested_delimiters(
+                    Token::Match,
+                    Token::If,
+                    [
+                        (Token::Lbracket, Token::Rbracket),
+                        (Token::Lparen, Token::Semicolon),
+                    ],
+                    |span| (Expression::ParserError, span),
+                )))
+                .then_ignore(just(Token::If))
                 .then(
                     refutable_pattern()
                         .then_ignore(just(Token::Then))
-                        .then(expression)
+                        .then(
+                            expression
+                                .clone()
+                                .recover_with(via_parser(nested_delimiters(
+                                    Token::Then,
+                                    Token::Comma,
+                                    [
+                                        (Token::Then, Token::Newline),
+                                        (Token::Lparen, Token::Semicolon),
+                                    ],
+                                    |span| (Expression::ParserError, span),
+                                ))),
+                        )
                         .separated_by(just(Token::Comma).then(separator()))
-                        .collect()
-                        .delimited_by(
-                            just(Token::If).then(separator()),
-                            just(Token::Semicolon).padded_by(separator()),
-                        ),
+                        .collect(),
                 )
                 .map_with(|(condition, arms), ctx| {
                     (
@@ -299,9 +316,32 @@ where
                         ctx.span(),
                     )
                 });
+            // "for" <name> "in" <expression> "then" <expression>
+            let for_loop = just(Token::For)
+                .ignore_then(name_parser().map_with(|a, ctx| (a, ctx.span())))
+                .then_ignore(just(Token::In))
+                .then(expression.clone())
+                .then_ignore(just(Token::Then))
+                .then(expression.clone())
+                .map_with(|((name, iterator), code_block), ctx| {
+                    (
+                        Expression::For(Box::new(For {
+                            name,
+                            iterator,
+                            code_block,
+                        })),
+                        ctx.span(),
+                    )
+                });
 
             // Comparison ops (equal, not-equal) have equal precedence
-            choice((comp.labelled("line expression").as_context(), if_, r#match)).boxed()
+            choice((
+                comp.labelled("line expression").as_context(),
+                if_,
+                r#match,
+                for_loop,
+            ))
+            .boxed()
         };
         inline_expression.boxed()
     })
